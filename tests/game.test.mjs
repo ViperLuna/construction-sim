@@ -28,7 +28,7 @@ function easy(dispatcher) {
 // Accept the first offer, ignoring its deadline (for tests about other things).
 function take(dispatcher) {
   const offer = dispatcher.offers[0];
-  offer.dueAt = Infinity;
+  offer.dueAt = 1e9;
   return dispatcher.accept(offer.id);
 }
 
@@ -72,7 +72,7 @@ test('scheduler: starts today if most of the job fits, otherwise next morning', 
   for (const [label, startMinute, today] of cases) {
     const ctx = setup(startMinute);
     const offer = ctx.dispatcher.offers[0];
-    offer.dueAt = Infinity; // this test is about finding slots, not deadlines
+    offer.dueAt = 1e9; // this test is about finding slots, not deadlines
     const job = ctx.dispatcher.accept(offer.id);
     const p = partsAt(job.start);
     if (today) assert.equal(p.day, 'Mon', label + ' -> same day');
@@ -263,7 +263,7 @@ test("can't take a job that doesn't fit its allotted completion time", () => {
 test('an overrun that finishes after the due date pays less', () => {
   const ctx = setup();
   const offer = ctx.dispatcher.offers[0];
-  offer.dueAt = Infinity;
+  offer.dueAt = 1e9;
   const job = ctx.dispatcher.accept(offer.id);
   job.dueAt = job.start + 5; // pretend the job ran long and blew past its due time
   run(ctx, () => ctx.dispatcher.history.length === 1);
@@ -275,7 +275,7 @@ test('an overrun that finishes after the due date pays less', () => {
 test('on-time work is paid in full, and the late penalty is capped', () => {
   const ctx = setup();
   const offer = ctx.dispatcher.offers[0];
-  offer.dueAt = Infinity;
+  offer.dueAt = 1e9;
   const job = ctx.dispatcher.accept(offer.id);
   run(ctx, () => ctx.dispatcher.history.length === 1);
   assert.equal(job.daysLate, 0);
@@ -455,4 +455,117 @@ test('working earns the crew XP, and spending points makes them faster', () => {
   const before = dispatcher.rateFor(JOB_TYPES.mow);
   assert.ok(dispatcher.spend('owner', 'speed'));
   assert.ok(dispatcher.rateFor(JOB_TYPES.mow) > before);
+});
+
+// ---------------------------------------------------------------- saving
+import { serialize, restore, canSave, validate, parseSaveText, writeSave, readSave, clearSave, readSaveText, SAVE_KEY } from '../js/game/save.js';
+
+const strip = (save) => ({ ...save, savedAt: 0 });
+
+function memoryStorage() {
+  const data = new Map();
+  return {
+    getItem: (k) => (data.has(k) ? data.get(k) : null),
+    setItem: (k, v) => void data.set(k, String(v)),
+    removeItem: (k) => void data.delete(k),
+  };
+}
+
+// A game with some history: jobs done, an employee hired and levelled, work queued.
+function messyGame() {
+  const ctx = setup();
+  const { dispatcher, economy, clock } = ctx;
+  for (let i = 0; i < 3; i++) take(dispatcher);
+  dispatcher.hire(dispatcher.applicants[0].id, dispatcher.applicants[0].ask);
+  run(ctx, () => clock.shiftOver);
+  dispatcher.endDay();
+  take(dispatcher);
+  take(dispatcher);
+  dispatcher.roster.owner.points = 3;
+  dispatcher.spend('owner', 'quality');
+  return ctx;
+}
+
+test('save then load: a new game picks up exactly where the old one left off', () => {
+  const a = messyGame();
+  assert.ok(canSave(a), 'home, idle');
+  const saved = serialize(a);
+  const json = JSON.parse(JSON.stringify(saved)); // as it would come back from storage
+
+  const b = setup();
+  restore(b, json);
+  assert.deepEqual(strip(serialize(b)), strip(saved), 'nothing lost or changed in the round trip');
+  assert.equal(b.economy.money, a.economy.money);
+  assert.equal(b.dispatcher.roster.employees.length, 1);
+  assert.equal(b.dispatcher.schedule.length, a.dispatcher.schedule.length);
+  assert.equal(b.dispatcher.history.length, a.dispatcher.history.length);
+  assert.equal(b.clock.minutes, a.clock.minutes);
+
+  // and the loaded game keeps working: the queued jobs run and get paid
+  const queued = b.dispatcher.schedule.length;
+  const before = b.economy.money;
+  run(b, () => b.dispatcher.schedule.length === 0 && b.dispatcher.state === 'idle');
+  assert.equal(b.dispatcher.history.length, Math.min(10, a.dispatcher.history.length + queued));
+  assert.ok(b.economy.money > before, 'the queued jobs paid out');
+  assert.ok(b.dispatcher.isIdleAtHome() || b.dispatcher.state === 'idle');
+});
+
+test('a loaded game behaves the same as the original would have', () => {
+  const a = messyGame();
+  const json = JSON.parse(JSON.stringify(serialize(a)));
+  const b = setup();
+  restore(b, json);
+  run(a, () => a.dispatcher.schedule.length === 0 && a.dispatcher.state === 'idle');
+  run(b, () => b.dispatcher.schedule.length === 0 && b.dispatcher.state === 'idle');
+  assert.equal(b.economy.money, a.economy.money);
+  assert.equal(Math.round(b.clock.minutes), Math.round(a.clock.minutes));
+});
+
+test("saving is only offered when the crew is home and idle", () => {
+  const ctx = setup();
+  assert.ok(canSave(ctx));
+  take(ctx.dispatcher);
+  run(ctx, () => ctx.dispatcher.state !== 'idle');
+  assert.equal(canSave(ctx), false, 'not while out on a job');
+  run(ctx, () => ctx.dispatcher.history.length === 1 && ctx.dispatcher.state === 'idle' && ctx.truck.state === 'parked' && ctx.truck.nodeId === ctx.dispatcher.homeNode);
+  assert.ok(canSave(ctx), 'home again');
+});
+
+test('storage: write, read back, clear; broken or foreign data is ignored, never a crash', () => {
+  const storage = memoryStorage();
+  assert.equal(readSave(storage), null);
+  const saved = serialize(setup());
+  assert.ok(writeSave(saved, storage));
+  assert.deepEqual(strip(readSave(storage)), strip(saved));
+  clearSave(storage);
+  assert.equal(readSave(storage), null);
+
+  storage.setItem(SAVE_KEY, '{not json');
+  assert.equal(readSave(storage), null);
+  storage.setItem(SAVE_KEY, JSON.stringify({ v: 99 }));
+  assert.equal(readSave(storage), null);
+  const full = { getItem: () => null, setItem: () => { throw new Error('quota'); }, removeItem: () => {} };
+  assert.equal(writeSave(saved, full), false, 'a full or blocked storage just reports failure');
+  assert.equal(readSaveText({ getItem: () => { throw new Error('blocked'); } }), null);
+});
+
+test('imported save files are checked', () => {
+  const saved = serialize(setup());
+  assert.ok(parseSaveText(JSON.stringify(saved)));
+  assert.throws(() => parseSaveText('hello'), /not a save/);
+  assert.throws(() => parseSaveText('{"v":1}'), /clock/);
+  assert.throws(() => parseSaveText(JSON.stringify({ ...saved, v: 2 })), /version/);
+  assert.throws(() => parseSaveText(JSON.stringify({ ...saved, economy: { money: 'lots', fuelGal: 5 } })), /money or fuel/);
+  assert.throws(() => validate({ ...saved, roster: [] }), /crew/);
+});
+
+test('a save that mentions lots or jobs that no longer exist loads without them', () => {
+  const a = messyGame();
+  const saved = JSON.parse(JSON.stringify(serialize(a)));
+  saved.offers.push({ ...saved.offers[0], id: 'ghost', lotId: 'nowhere' });
+  saved.schedule.push({ ...saved.schedule[0], id: 99, typeId: 'moon-mining' });
+  const b = setup();
+  restore(b, saved);
+  assert.ok(!b.dispatcher.offers.some((o) => o.id === 'ghost'));
+  assert.ok(!b.dispatcher.schedule.some((j) => j.id === 99));
 });

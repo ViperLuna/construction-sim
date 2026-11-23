@@ -23,6 +23,7 @@ const ASSETS = [
   './js/game/clock.js',
   './js/game/economy.js',
   './js/game/crew.js',
+  './js/game/save.js',
   './js/game/dispatcher.js',
   './js/game/render.js',
   './icons/icon.svg',

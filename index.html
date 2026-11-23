@@ -23,6 +23,7 @@
     <p class="tagline">Mow it. Mulch it. Build it.</p>
     <div class="title-buttons">
       <button id="btn-play" class="btn primary" type="button">Play</button>
+      <button id="btn-newgame" class="btn" type="button" hidden>New Game</button>
       <button id="btn-fullscreen" class="btn" type="button">Full Screen</button>
       <button id="btn-settings" class="btn" type="button">Settings</button>
     </div>
@@ -86,6 +87,18 @@
       <input id="set-seconds-per-hour" type="number" min="60" step="1" inputmode="numeric" required>
       <p class="hint">60 is the default and the fastest allowed (one real minute is one game hour). Higher numbers slow the game down.</p>
       <p id="settings-msg" class="hint" role="status"></p>
+
+      <fieldset class="save-box">
+        <legend>Save data</legend>
+        <p id="save-info" class="hint"></p>
+        <div class="save-actions">
+          <button id="btn-save-now" class="btn" type="button">Save now</button>
+          <button id="btn-save-export" class="btn" type="button">Export</button>
+          <button id="btn-save-import" class="btn" type="button">Import</button>
+          <input id="file-import" type="file" accept="application/json,.json" hidden>
+        </div>
+        <p class="hint">The game saves by itself whenever the crew is home. Export makes a file you can keep or move to another device or browser.</p>
+      </fieldset>
       <div class="dialog-buttons">
         <button id="btn-settings-reset" class="btn" type="button">Reset</button>
         <button id="btn-settings-cancel" class="btn" type="button">Cancel</button>

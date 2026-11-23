@@ -8,6 +8,7 @@ import { createEconomy, formatMoneyShort, formatMoneyFull } from './game/economy
 import { Dispatcher } from './game/dispatcher.js';
 import { STAT_KEYS, STAT_SHORT, STAT_LABELS, MAX_STAT, RARITIES, xpToNext, cashNeededFor, acceptChance } from './game/crew.js';
 import { createCamera, render, screenToWorld } from './game/render.js';
+import { canSave, serialize, restore, readSave, readSaveText, writeSave, clearSave, parseSaveText } from './game/save.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,14 +24,34 @@ const gameScreen = $('game-screen');
 const settingsDialog = $('settings-dialog');
 
 let game = null;
+let saveBlocked = false; // set while the page is about to reload with different save data
+let existingSave = readSave(); // null if there isn't one (or it can't be read)
+
+function refreshTitle() {
+  $('btn-play').textContent = existingSave ? 'Continue' : 'Play';
+  $('btn-newgame').hidden = !existingSave;
+}
+refreshTitle();
 
 $('btn-play').addEventListener('click', () => {
   unlock(); // browsers only allow sound after a tap
+  try {
+    navigator.storage?.persist?.(); // ask the browser to keep our save data
+  } catch {
+    /* not available */
+  }
   titleScreen.hidden = true;
   gameScreen.hidden = false;
-  if (!game) game = createGame();
+  if (!game) game = createGame(existingSave);
   game.resize();
   game.start();
+});
+
+$('btn-newgame').addEventListener('click', () => {
+  if (!confirm('Start a new game? Your saved game will be deleted.')) return;
+  saveBlocked = true; // otherwise closing the page would just save the old game again
+  clearSave();
+  location.reload();
 });
 
 $('btn-fullscreen').addEventListener('click', async () => {
@@ -50,12 +71,61 @@ $('btn-fullscreen').addEventListener('click', async () => {
   }
 });
 
+// ---------- save data (in settings) ----------
+function refreshSaveBox() {
+  const text = readSaveText();
+  const stored = readSave();
+  const when = stored ? new Date(stored.savedAt).toLocaleString() : null;
+  $('save-info').textContent = stored ? `Last saved ${when}.` : 'No saved game yet.';
+  $('btn-save-now').disabled = !game || !game.canSaveNow();
+  $('btn-save-export').disabled = !text;
+}
+
+$('btn-save-now').addEventListener('click', () => {
+  $('settings-msg').textContent = game && game.saveNow() ? 'Saved.' : "Can't save right now. It works when the crew is home.";
+  refreshSaveBox();
+});
+
+$('btn-save-export').addEventListener('click', () => {
+  if (game) game.saveNow(); // make sure the file has the latest
+  const text = readSaveText();
+  if (!text) return;
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'construction-sim-save.json';
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('btn-save-import').addEventListener('click', () => $('file-import').click());
+$('file-import').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = parseSaveText(await file.text());
+    if (!confirm('Replace your current saved game with this file?')) return;
+    saveBlocked = true; // keep the running game from saving over the import
+    if (!writeSave(data)) {
+      saveBlocked = false;
+      throw new Error('Could not store the save (is browser storage blocked?).');
+    }
+    location.reload();
+  } catch (err) {
+    $('settings-msg').textContent = err.message;
+  }
+});
+
 // ---------- settings ----------
 const sphInput = $('set-seconds-per-hour');
 function openSettings() {
   sphInput.min = String(CONFIG.minSecondsPerGameHour);
   sphInput.value = String(CONFIG.secondsPerGameHour);
   $('settings-msg').textContent = '';
+  refreshSaveBox();
   settingsDialog.showModal();
 }
 $('btn-settings').addEventListener('click', openSettings);
@@ -86,13 +156,21 @@ function el(tag, className, text) {
   return node;
 }
 
-function createGame() {
+function createGame(savedData) {
   const world = buildWorld();
   const clock = new Clock();
   const truck = new Truck(world, world.property.homeNode);
   const economy = createEconomy();
   const dispatcher = new Dispatcher({ world, truck, clock, economy });
   const roster = dispatcher.roster; // the owner, plus anyone hired
+  const ctxForSave = { world, clock, economy, dispatcher, truck };
+  if (savedData) {
+    try {
+      restore(ctxForSave, savedData);
+    } catch (err) {
+      console.warn('Could not load the saved game, starting fresh.', err);
+    }
+  }
 
   const canvas = $('map');
   const ctx = canvas.getContext('2d');
@@ -116,6 +194,15 @@ function createGame() {
   let confirmFireId = null;
   const offerWage = new Map(); // applicant id -> the wage typed in so far
   let hireMessage = '';
+  let dirty = false; // something changed since the last save
+  let lastSaveAt = 0;
+
+  function saveNow() {
+    if (saveBlocked || !canSave(ctxForSave)) return false;
+    const ok = writeSave(serialize(ctxForSave));
+    if (ok) dirty = false;
+    return ok;
+  }
 
   const setStatus = (text) => {
     statusEl.textContent = text;
@@ -421,6 +508,7 @@ function createGame() {
     } else if (type === 'levelUp') {
       setStatus(`${payload.isOwner ? 'You' : payload.name} reached level ${payload.level}. Open Crew to spend points.`);
     }
+    if (['scheduled', 'crew', 'done', 'newDay', 'offers'].includes(type)) dirty = true;
     if (type !== 'scheduled') renderPanel();
   };
 
@@ -437,6 +525,7 @@ function createGame() {
         ? `Payday: ${payroll.lines.length} employee${payroll.lines.length > 1 ? 's' : ''}, ${formatMoneyFull(payroll.total)}. New day, fresh offers.`
         : 'New day. Fresh job offers are in.',
     );
+    dirty = true;
     refreshHud();
     renderPanel();
   });
@@ -454,6 +543,7 @@ function createGame() {
     }),
   );
   $('btn-title').addEventListener('click', () => {
+    saveNow();
     running = false;
     gameScreen.hidden = true;
     titleScreen.hidden = false;
@@ -554,6 +644,9 @@ function createGame() {
       setStatus("Shift's over. Press End Day when you're ready.");
     }
 
+    // Autosave once the crew is home and nothing is in motion.
+    if (dirty && now - lastSaveAt > 700 && saveNow()) lastSaveAt = now;
+
     // The camera stays on the truck while it's out working, if Follow is on.
     const out = dispatcher.state !== 'idle' || truck.state === 'driving';
     if (follow && out) {
@@ -593,12 +686,17 @@ function createGame() {
     requestAnimationFrame(frame);
   }
 
-  setStatus('Open Jobs to pick some work.');
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveNow();
+  });
+  window.addEventListener('pagehide', saveNow);
+
+  setStatus(savedData ? 'Welcome back. Your game was loaded.' : 'Open Jobs to pick some work.');
 
   // Test hook so automated checks can drive the game without pixel hunting.
   window.__game = { world, truck, clock, economy, dispatcher, view, setTab };
 
-  return { resize, start };
+  return { resize, start, saveNow, canSaveNow: () => canSave(ctxForSave) };
 }
 
 // ---------- installable app ----------

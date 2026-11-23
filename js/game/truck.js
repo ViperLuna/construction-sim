@@ -135,6 +135,21 @@ export class Truck {
     this.onArrive = null;
   }
 
+  // Put the truck back in its parking spot at the property (used when a save is
+  // loaded). Same spot as the start of a new game.
+  placeAtHome() {
+    const home = this.world.nodes[this.world.property.homeNode];
+    this.nodeId = this.world.property.homeNode;
+    this.x = home.x + CONFIG.laneOffset;
+    this.y = home.y;
+    this.heading = -Math.PI / 2;
+    this.state = 'parked';
+    this.pts = [];
+    this.cum = [];
+    this.travelled = 0;
+    this.destNode = this.nodeId;
+  }
+
   // Estimate (tiles and game minutes) without starting the trip.
   estimate(toNodeId) {
     const route = findPath(this.world, this.nodeId, toNodeId);

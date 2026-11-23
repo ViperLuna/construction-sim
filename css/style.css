@@ -183,3 +183,10 @@ dialog input {
 .btn.small { min-height: 36px; min-width: 40px; padding: 0 10px; }
 .btn.danger { background: #b83a3a; border-color: #8f2a2a; color: #fff; }
 p.warn { margin: 6px 0; }
+
+/* save data box in settings */
+.save-box { border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; margin: 14px 0 0; padding: 8px 12px 12px; }
+.save-box legend { padding: 0 6px; font-weight: 600; }
+.save-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.save-actions .btn { flex: 1; min-width: 5.5em; }
+.save-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }

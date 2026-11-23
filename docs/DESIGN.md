@@ -459,6 +459,29 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[LOCKED]** A **Settings** screen exists. Planned items so far: `secondsPerGameHour` (see 5), **hide job costs** toggle (default off), and **keybinds** (to be designed later).
 - **[OPEN]** Full settings list, and the keybind scheme.
 
+## 24. Title Screen and Installation
+
+### 24.1 Title screen
+- **[LOCKED]** A **title/splash screen** appears first. Placeholder for now: **Title, Version, Play, Full Screen, Settings**, with room for more buttons later.
+- **[LOCKED]** Pressing **Play** is the user gesture that **allows sound** to start (browsers block audio until the player interacts). Sound itself comes later.
+- **[PROPOSED]** The full-screen button uses the browser Fullscreen API where supported. iPhone Safari doesn't support it for pages, but an **installed web app launches full-screen** anyway.
+
+### 24.2 Installable web app (PWA)
+- **[LOCKED]** The game is **installable** (add to home screen) so players don't have to keep visiting the URL. This is a priority for the owner.
+- **[LOCKED]** The **app icon is a traffic cone** (simple, placeholder-friendly).
+- **[PROPOSED]** Add a **web app manifest** and a **service worker** so the game works **offline** after the first load.
+- **[PROPOSED]** The site is served from a repo sub-path (`/construction-sim/`), so the manifest and service worker use **relative paths**.
+- **[PROPOSED]** Ask the browser for **persistent storage** so saves are less likely to be cleared.
+- **[LOCKED]** Be aware that on some phones, **browser storage and the installed app's storage are separate**, so a save made in the browser may not appear in the installed app. **Save export/import** (see 12) is the answer to this.
+
+## 25. Crew Screen
+
+- **[PROPOSED]** One screen with three tabs: **Roster, Teams, Hiring**.
+- **[PROPOSED]** Top banners show **resignation notices** and **raise requests** with quick actions (accept/decline, raise pay).
+- **[PROPOSED]** **Roster:** a card per person (player first) showing level, XP, the six stats, wage, morale, employment type and schedule, **unspent points**, and buttons **Train, Schedule, Spend points, Fire**.
+- **[PROPOSED]** **Teams:** each crew shows its name (renamable), members, assigned vehicle, schedule and today's jobs. Crews are auto-created in pairs. Crew size is capped by the vehicle's seats. **+ Add member** moves people between crews.
+- **[PROPOSED]** **Hiring:** the daily applicant pool with **rarity shown by color and icon**, stats, asking wage, an **offer box** (with an acceptance hint), and **Hire**. Rare applicants the player can't afford appear **locked**.
+
 ---
 
-*Last updated: job board, recurring jobs on the board, sorting, settings.*
+*Last updated: title screen, installable app, and crew screen.*

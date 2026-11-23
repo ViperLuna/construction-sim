@@ -195,8 +195,12 @@ State St ------------+----+----+----+----+----+----+-----------
 - **[LOCKED]** **Owner hours cap:** to limit exploitation of the unpaid owner, after a set amount of time on the clock **the owner shuts down and goes home**, regardless of how the schedule is built. (Anything still unfinished carries over.)
 - **[LOCKED]** **12-hour daily cap for every employee** (owner included). After 12 hours on the clock in a day, they go home.
 - **[LOCKED]** Employees can work **7 days a week**, but **long stretches without rest wear them down** and they can **burn out** if they don't get time off.
-- **[PROPOSED]** Burnout builds with long days and long streaks of working days, and recovers with days off. It lowers work speed and morale, and a burned-out employee may quit. The **Stamina** stat slows it down.
-- **[OPEN]** Exact burnout numbers: how fast it builds and recovers, and what it costs in speed and morale.
+- **[LOCKED]** **The owner can work 7 days a week, every week, with no burnout** (a bit of exploitation of the owner is fine). The owner can still **slow down without rest**.
+- **[PROPOSED]** Two separate effects:
+  - **Fatigue** (everyone, owner included): builds with long days and long streaks of working days, recovers with days off, and **slows work speed**.
+  - **Burnout** (employees only, owner immune): the same buildup past a limit, which **lowers morale** and can make an employee **quit**.
+- **[PROPOSED]** The **Stamina** stat slows both effects.
+- **[OPEN]** Exact numbers: how fast fatigue and burnout build and recover, and what they cost in speed and morale.
 - **[OPEN]** How the owner's take is defined, if at all: free withdrawals, a player-set draw, or a running profit tally. (Leaning: profit tally with withdrawals.)
 
 ### 6.2 Employment and schedules

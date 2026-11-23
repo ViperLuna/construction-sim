@@ -165,7 +165,8 @@ export class Truck {
   }
 
   update(gameMinutes) {
-    if (this.state !== 'driving' || gameMinutes <= 0) return;
+    // Returns how many tiles the truck moved this step (for fuel use).
+    if (this.state !== 'driving' || gameMinutes <= 0) return 0;
     const before = Math.min(this.travelled, this.cum[this.cum.length - 1]);
     this.travelled += gameMinutes * CONFIG.truckTilesPerGameMinute;
     const total = this.cum[this.cum.length - 1];
@@ -194,6 +195,7 @@ export class Truck {
       this.nodeId = this.destNode;
       if (this.onArrive) this.onArrive(this.nodeId);
     }
+    return moved;
   }
 
   progress() {

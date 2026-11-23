@@ -17,6 +17,11 @@ export const CONFIG = {
   // Distance sideways from the road centerline that vehicles drive on (tiles).
   laneOffset: 0.45,
 
+  // A freshly mowed lawn keeps its stripes this long, then fades back to a
+  // plain lawn over the second number (game minutes).
+  mowHoldMinutes: 45,
+  mowFadeMinutes: 45,
+
   // Speed multipliers offered by the HUD (0 = paused).
   speeds: [0, 1, 2, 4],
 };

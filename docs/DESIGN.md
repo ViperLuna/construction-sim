@@ -191,13 +191,17 @@ State St ------------+----+----+----+----+----+----+-----------
 - **[LOCKED]** The player is a crew member and can be scheduled like anyone else.
 - **[LOCKED]** The player has a wide array of capabilities (owner-level skill) but can still only do **one person's worth of work**.
 - **[LOCKED]** The player is **not paid hourly**. They own the company, and their income is **whatever profit remains** from jobs. The player has to schedule jobs so the company earns enough to cover their own "salary." It depends on work done, not on showing up.
-- **[OPEN]** How the owner's take is defined: free withdrawals, a player-set draw, or a running profit tally. (Leaning: profit tally with withdrawals.)
+- **[LOCKED]** The owner has **no salary and no living costs** (no groceries, heat, electric, rent). Home life isn't part of the game, so the owner is **free labor**.
+- **[LOCKED]** **Owner hours cap:** to limit exploitation of the unpaid owner, after a set amount of time on the clock **the owner shuts down and goes home**, regardless of how the schedule is built. (Anything still unfinished carries over.)
+- **[OPEN]** The cap length (leaning about 10 hours, the length of a standard shift, with a small allowance for running over).
+- **[OPEN]** How the owner's take is defined, if at all: free withdrawals, a player-set draw, or a running profit tally. (Leaning: profit tally with withdrawals.)
 
 ### 6.2 Employment and schedules
 - **[LOCKED]** Every crew member (including the player) can be scheduled for certain days and hours.
 - **[LOCKED]** **Full-time:** works the full business day. The player only chooses **days**.
 - **[LOCKED]** **Part-time:** the player chooses **days and hours**.
 - **[LOCKED]** Employees are **paid hourly from clock-in to clock-out**, not per job. This includes drive time.
+- **[LOCKED]** **Payday is every day:** all employees are **paid at the end of each day** for the hours they clocked. The owner is not paid.
 - **[OPEN]** Whether crew are paid while clocked in with no job scheduled. (Probably yes, which punishes under-booking.)
 
 ### 6.3 Stats and leveling

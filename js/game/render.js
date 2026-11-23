@@ -89,9 +89,57 @@ function drawRoads(ctx, world) {
   ctx.setLineDash([]);
 }
 
-function drawLot(ctx, lot, selected, showNumbers, zoom) {
+// Mowing stripes appear band by band as the job progresses (the staged visual
+// from docs/DESIGN.md, section 8.9). Alternating bands run in opposite
+// directions, like a real mower going back and forth.
+const MOW_BANDS = 8;
+
+function drawStripes(ctx, lot, alpha) {
+  const bandH = lot.h / MOW_BANDS;
+  const done = lot.mow * MOW_BANDS;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  for (let i = 0; i < MOW_BANDS; i++) {
+    const f = Math.max(0, Math.min(1, done - i));
+    if (f <= 0) break;
+    const w = lot.w * f;
+    const x = i % 2 === 0 ? lot.x : lot.x + lot.w - w;
+    ctx.fillStyle = i % 2 === 0 ? '#a9df86' : '#74b358';
+    ctx.fillRect(x, lot.y + i * bandH, w, bandH);
+  }
+  ctx.restore();
+}
+
+function drawMower(ctx, lot) {
+  const bandH = lot.h / MOW_BANDS;
+  const done = lot.mow * MOW_BANDS;
+  const i = Math.min(MOW_BANDS - 1, Math.floor(done));
+  const f = done - i;
+  const ltr = i % 2 === 0;
+  const x = ltr ? lot.x + lot.w * f : lot.x + lot.w * (1 - f);
+  const y = lot.y + (i + 0.5) * bandH;
+  const back = ltr ? -0.5 : 0.5;
+  // the person pushing, then the mower
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.arc(x + back + 0.05, y + 0.08, 0.26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2f6fb0';
+  ctx.beginPath();
+  ctx.arc(x + back, y, 0.26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f0c9a0';
+  ctx.beginPath();
+  ctx.arc(x + back, y, 0.14, 0, Math.PI * 2);
+  ctx.fill();
+  rect(ctx, x - 0.28, y - 0.2, 0.56, 0.4, '#c0392b');
+  rect(ctx, x - 0.2, y - 0.12, 0.4, 0.24, '#e8593f');
+}
+
+function drawLot(ctx, lot, selected, showNumbers, zoom, mowAlpha, mowing) {
   const palette = (lot.kind === 'shop' ? SHOP_PALETTE : HOUSE_PALETTE)[lot.palette];
   rect(ctx, lot.x, lot.y, lot.w, lot.h, lot.kind === 'shop' ? '#b9bdb0' : COLORS.grassLot);
+  if (mowAlpha > 0) drawStripes(ctx, lot, mowAlpha);
 
   const towardStreet = lot.side === 'south' ? -1 : 1; // direction from lot to the road
   const houseH = lot.kind === 'shop' ? 2.4 : 2;
@@ -116,6 +164,8 @@ function drawLot(ctx, lot, selected, showNumbers, zoom) {
     rect(ctx, hx + houseW / 2 - 0.12, hy, 0.24, houseH * 0.55, 'rgba(0,0,0,0.14)');
     rect(ctx, hx + houseW * 0.4, hy + houseH * 0.68, 0.45, 0.32, '#8b6b4a');
   }
+
+  if (mowing) drawMower(ctx, lot);
 
   if (selected) {
     ctx.strokeStyle = '#ffd23f';
@@ -221,8 +271,29 @@ function drawTruck(ctx, truck, zoom) {
   ctx.restore();
 }
 
+// "+$45" style text that rises and fades above a finished job.
+function drawFloaters(ctx, floaters, zoom) {
+  const size = Math.max(0.9, 15 / zoom);
+  ctx.font = `bold ${size}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  for (const f of floaters) {
+    const t = f.age / f.life;
+    ctx.globalAlpha = Math.max(0, 1 - t * t);
+    const y = f.y - t * 2.5;
+    ctx.lineWidth = size * 0.22;
+    ctx.strokeStyle = 'rgba(15,30,20,0.9)';
+    ctx.strokeText(f.text, f.x, y);
+    ctx.fillStyle = '#7dff9a';
+    ctx.fillText(f.text, f.x, y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textBaseline = 'alphabetic';
+}
+
 export function render(ctx, state) {
-  const { world, cam, truck, selectedLot, cssW, cssH, dpr } = state;
+  const { world, cam, truck, selectedLot, cssW, cssH, dpr, lawnAlpha, mowingLot, floaters } = state;
 
   // Clear in screen space, then draw in world space.
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -236,8 +307,11 @@ export function render(ctx, state) {
 
   drawProperty(ctx, world, cam.zoom);
   drawRoads(ctx, world);
-  for (const lot of world.lots) drawLot(ctx, lot, selectedLot === lot, showNumbers, cam.zoom);
+  for (const lot of world.lots) {
+    drawLot(ctx, lot, selectedLot === lot, showNumbers, cam.zoom, lawnAlpha ? lawnAlpha(lot) : 0, mowingLot === lot);
+  }
   for (const t of world.trees) drawTree(ctx, t);
   drawStreetLabels(ctx, world, cam.zoom);
   drawTruck(ctx, truck, cam.zoom);
+  if (floaters && floaters.length) drawFloaters(ctx, floaters, cam.zoom);
 }

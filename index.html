@@ -47,15 +47,31 @@
       <button id="btn-game-settings" class="icon-btn" type="button" aria-label="Settings">⚙</button>
     </header>
 
-    <canvas id="map" aria-label="Town map"></canvas>
+    <div class="strip">
+      <span id="hud-money" class="chip money">$500</span>
+      <span id="hud-fuel" class="chip">⛽ 500 gal</span>
+      <span id="hud-crew" class="chip grow">Waiting at home</span>
+    </div>
+
+    <div class="map-wrap">
+      <canvas id="map" aria-label="Town map"></canvas>
+      <section id="panel" class="panel" hidden aria-live="polite">
+        <h2 id="panel-title"></h2>
+        <div id="panel-body"></div>
+      </section>
+      <button id="btn-endday" class="btn primary endday" type="button" hidden></button>
+    </div>
 
     <footer class="toolbar">
       <p id="status" class="status" role="status"></p>
-      <div class="toolbar-row">
-        <select id="dest-select" aria-label="Destination"></select>
-        <button id="btn-go" class="btn primary" type="button">Go</button>
-        <button id="btn-home" class="btn" type="button">Home</button>
-        <button id="btn-follow" class="btn" type="button" aria-pressed="false">Follow</button>
+      <nav class="tabs" aria-label="Screens">
+        <button class="tab" data-tab="map" type="button" aria-pressed="true">Map</button>
+        <button class="tab" data-tab="jobs" type="button" aria-pressed="false">Jobs <span id="jobs-badge" class="badge">0</span></button>
+        <button class="tab" data-tab="schedule" type="button" aria-pressed="false">Schedule</button>
+      </nav>
+      <div id="map-actions" class="toolbar-row">
+        <button id="btn-follow" class="btn" type="button" aria-pressed="true">Follow truck</button>
+        <button id="btn-recenter" class="btn" type="button">Whole town</button>
       </div>
     </footer>
   </div>

@@ -65,7 +65,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .game {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   background: #5f9a47;
 }
 .hud {
@@ -80,8 +80,37 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .clock-date { font-size: 0.75rem; color: var(--muted); }
 .clock-time { font-size: 1.05rem; font-weight: 700; }
 .speed { display: flex; gap: 4px; }
-canvas#map { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.map-wrap { position: relative; min-height: 0; overflow: hidden; }
+canvas#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 canvas#map:active { cursor: grabbing; }
+
+/* money / fuel / crew strip under the top bar */
+.strip { display: flex; gap: 6px; align-items: center; padding: 5px calc(8px + var(--safe-r)) 5px calc(8px + var(--safe-l)); background: var(--panel-2); font-size: 0.9rem; }
+.chip { padding: 3px 9px; border-radius: 999px; background: rgba(0, 0, 0, 0.25); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chip.money { font-weight: 700; color: #7be08a; }
+.chip.grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; background: transparent; color: var(--muted); text-align: right; }
+
+/* slide-up panel for Jobs and Schedule */
+.panel { position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%; overflow-y: auto; background: var(--panel); border-top: 1px solid rgba(255, 255, 255, 0.18); border-radius: 14px 14px 0 0; padding: 12px 12px 14px; box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35); }
+.panel h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.empty { color: var(--muted); margin: 8px 0; }
+.card { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: var(--bg); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.card-main { min-width: 0; }
+.card-main strong { display: block; }
+.muted { color: var(--muted); font-size: 0.88rem; }
+.good { color: #7be08a; }
+.row-status { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+.card.done { opacity: 0.7; }
+
+/* End Day button, floating at the bottom of the map */
+.endday { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 0 22px; min-height: 52px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+
+/* bottom tabs */
+.tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.tab { flex: 1; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; min-height: 44px; cursor: pointer; }
+.tab[aria-pressed='true'] { background: var(--accent); border-color: var(--accent-2); color: #1b1206; font-weight: 700; }
+.badge { display: inline-block; min-width: 1.4em; padding: 0 5px; border-radius: 999px; background: rgba(0, 0, 0, 0.3); font-size: 0.8rem; }
+.tab[aria-pressed='true'] .badge { background: rgba(0, 0, 0, 0.22); }
 
 .toolbar {
   background: var(--panel);
@@ -90,7 +119,8 @@ canvas#map:active { cursor: grabbing; }
 }
 .status { margin: 0 0 8px; min-height: 1.3em; color: var(--muted); font-size: 0.95rem; }
 .toolbar-row { display: flex; gap: 6px; }
-.toolbar-row select { flex: 1; min-width: 0; padding: 0 10px; }
+.toolbar-row .btn { flex: 1; }
+.toolbar-row[hidden] { display: none; }
 
 /* ---------- settings dialog ---------- */
 dialog {

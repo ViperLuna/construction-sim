@@ -365,6 +365,40 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - Which jobs need insurance, and which need contracts.
 - More jobs to add. (Owner has many ideas still to share.)
 
+## 20. Crew Stats, Hiring and Raises
+
+### 20.1 Stats and leveling
+- **[LOCKED]** Crew have an **overall level** plus individual stats, each rated **1-10**.
+- **[LOCKED]** Starting stats: **Speed** and **Quality** (the two main ones), plus more.
+- **[PROPOSED]** Full stat list: **Speed** (work pace), **Quality** (job rating, neatness), **Stamina** (holds pace over a long day), **Driving** (fuel economy, time lost in traffic), **Equipment** (needed to operate machines, gates Tier 4 jobs), **Teamwork** (boosts the whole crew's efficiency).
+- **[LOCKED]** Crew **earn XP while working**. Each **level gives 1 point** the player can spend on any stat (max 10), by clicking on the crew member.
+- **[LOCKED]** A crew member's points can be **reset to their original stats and re-spent for a price**.
+- **[PROPOSED]** Respec price scales with level.
+- **[PROPOSED]** Hidden **Morale** stat drives raise requests and quitting.
+
+### 20.2 Hiring pool
+- **[LOCKED]** Hiring works like the job board: a **daily pool of applicants**, gacha-style.
+- **[LOCKED]** Very good applicants **sometimes appear that the player can't afford yet**, as something to look forward to. The pool **always includes common and uncommon applicants** the player can actually hire.
+- **[PROPOSED]** Rarity tiers (common, uncommon, rare, and so on). Higher **reputation** shifts the odds toward better applicants.
+- **[LOCKED]** Each applicant has an **asking starting wage**. The starting low end is **$12/hour**.
+- **[LOCKED]** The player can **offer a different wage**, and the applicant **accepts or declines**. Offering **more than asked guarantees acceptance**.
+- **[PROPOSED]** Offering **less** than asked may be declined, with the chance depending on how far below. Applicants may leave the pool at the end of the day.
+- **[OPEN]** Top end of the wage range for rare applicants.
+
+### 20.3 Raises, quitting and insurance
+- **[LOCKED]** Crew can **ask for raises** (or get automatic raises as they progress), and can **quit**, **giving notice first**.
+- **[PROPOSED]** Raise requests: when a worker levels up or hits a milestone, they ask for a raise. The player accepts or declines. Declining lowers morale.
+- **[PROPOSED]** Low morale leads to **notice of quitting** (for example a 2-day notice). The player can keep them by improving pay or conditions.
+- **[LOCKED]** **Insurance** is a **per-day premium paid alongside payroll**, a later-game option. Workers may eventually want to be insured.
+- **[PROPOSED]** Insurance improves morale. Unlocked with the HR milestone (see 9.1b).
+
+## 21. Money Format
+
+- **[LOCKED]** **All money is whole dollars (integers).** No cents anywhere.
+- **[LOCKED]** The **HUD shows short form** (for example **$1.54M**). The **money screen shows the full amount** with commas (for example **$1,540,391**).
+- **[PROPOSED]** Wages, fuel and other fractional amounts are **calculated and rounded to the nearest whole dollar when paid**, never mid-job.
+- **[PROPOSED]** Standard JavaScript numbers are sufficient (they hold integers safely to about 9 quadrillion).
+
 ---
 
-*Last updated: traffic, abstract map scale, and map plan v2.*
+*Last updated: crew stats, hiring, raises and money format.*

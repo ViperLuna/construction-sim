@@ -24,6 +24,8 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[PROPOSED]** All content (job types, materials, crew names, map lots, equipment) lives in data files, so new content never needs engine changes.
 - **[PROPOSED]** Save data is versioned so old saves can migrate as the game changes.
 - **[LOCKED]** Customization is a goal: make as much as possible configurable (hours, names, settings, and so on).
+- **[LOCKED]** **Art/performance:** simple, lightweight visuals. Flat, clean 2D shapes and sprites. No realism and nothing heavy on the GPU. Some lag is acceptable, but the game should run well on mobile.
+- **[LOCKED]** A **config file** holds tunable values. First entry: `secondsPerGameHour` (real seconds per in-game hour), **default and minimum 60**. Higher values are allowed and slow the game down.
 
 ## 3. The Map
 
@@ -36,6 +38,7 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
   - The player's property
 - **[LOCKED]** Real street names and real addresses. Every job goes to an actual address on the map.
 - **[LOCKED]** Supply locations are real places the crew can drive to, such as a lumber yard and a stone/landscape supply yard.
+- **[LOCKED]** The map includes a **baseball field** as a landscaping job site (a flagship late-early-game job: infield dirt, grass, bases, fencing).
 - **[PROPOSED]** Target roughly 100-150 addressable lots at launch.
 - **[PROPOSED]** The map is hand-designed but stored as data (grid/tiles plus a road graph), so it can expand later.
 - **[PROPOSED]** Trucks pathfind along the road graph. Drive time is derived from route distance and truck speed.
@@ -51,6 +54,7 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 
 - **[LOCKED]** The player sets business hours. **Default: 7:00 AM to 5:00 PM, Monday to Friday.**
 - **[LOCKED]** Days run in game-time with a pace/fast-forward control.
+- **[LOCKED]** **Normal pace: 1 real minute = 1 in-game hour** (so a 10-hour shift takes about 10 real minutes). Configurable via `secondsPerGameHour`, with 60 as both the default and the minimum.
 - **[LOCKED]** **After-hours skip:** when nobody is working, the player can skip ahead. It is **always manual**, available at the end of the shift only, because the player may want to do things (hire, buy, configure) before the next day starts. Nothing auto-advances past end of shift.
 - **[LOCKED]** The calendar shows jobs and who is working on each day.
 - **[PROPOSED]** The calendar shows the weather forecast.
@@ -110,6 +114,15 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[PROPOSED]** The offer pool is weighted by job type, company reputation, and progression.
 - **[PROPOSED]** Offers expire if not accepted.
 
+### 9.1b Reputation and Business Growth
+- **[LOCKED]** The company has a **reputation that improves as the player levels up**. Reputation affects which job offers appear.
+- **[LOCKED]** Business milestones unlock over time:
+  - **Insurance** (needed for bigger or riskier jobs)
+  - **HR** (supports a larger roster)
+  - **Contracts** (larger, recurring or multi-day work)
+- **[PROPOSED]** Higher reputation unlocks better-paying clients and bigger jobs. Poor ratings lower it.
+- **[OPEN]** Exact level thresholds and what each milestone costs and unlocks.
+
 ### 9.2 Job Definition (data-driven)
 Each job type defines:
 - Name and category
@@ -166,6 +179,13 @@ When viewing an offer, the player sees **offered pay against estimated cost**:
 
 The player (as owner) is paid from what remains. See open questions.
 
+### 11.1 Debt, Loans and Losing
+- **[LOCKED]** The player **can lose**. Going into the red starts a countdown (see below).
+- **[LOCKED]** The player can **borrow from the bank at interest**. Interest is kept reasonable, not crazy.
+- **[LOCKED]** Per the owner: **the smaller the loan, the higher the interest rate.**
+- **[PROPOSED]** Failure condition: if the balance stays negative for a set number of days, the business fails (game over). The grace period is shown clearly in the UI.
+- **[OPEN]** Grace period length, loan tiers and rates, repayment rules, and whether bankruptcy ends the save or allows a restart with a penalty.
+
 ## 12. Persistence
 
 - **[LOCKED]** Saves live in the browser via local storage and/or a local DB (IndexedDB).
@@ -190,13 +210,17 @@ Nothing gets coded until the design settles. When it does, build in small, playa
 1. **Owner pay:** free withdrawals, a player-set draw, or just a profit tally?
 2. **Fuel tank size:** is 500 gallons okay as the start?
 3. **Public gas stations:** include as an emergency option, or not?
-4. **Failure states:** can the player go bankrupt or lose, or is the worst case just slow progress?
-5. **Reputation:** does the company have a rating or reputation that affects which offers show up?
-6. **Pace:** how long should one game day take in real time at normal speed?
-7. **Art style:** flat/simple shapes, pixel art, or something else?
-8. **Pay during idle time:** employees are paid while clocked in. If no job is scheduled for them, are they still paid? (Probably yes, which punishes under-booking.)
-9. **Job type list:** to be brainstormed together (mowing, raking, hauling, mulching, flower beds, fencing, retaining walls, patios, and beyond).
-10. **Map layout and street names:** to be designed together.
+4. **Loans and bankruptcy details:** grace period, loan tiers and rates (note: "smaller loan = higher interest"), what happens on game over.
+5. **Reputation and milestones:** level thresholds, and what insurance, HR and contracts each cost and unlock.
+6. **Pay during idle time:** employees are paid while clocked in. If no job is scheduled for them, are they still paid? (Probably yes, which punishes under-booking.)
+7. **Job type list:** to be brainstormed together (mowing, raking, hauling, mulching, flower beds, fencing, retaining walls, patios, baseball field, and beyond).
+8. **Map layout and street names:** to be designed together.
+
+### Resolved
+- Failure states: yes, the player can lose (see 11.1).
+- Day length: 60 real seconds per game hour, configurable (see 5).
+- Art style: simple, lightweight, mobile-friendly (see 2).
+- Reputation exists and grows with level (see 9.1b).
 
 ---
 

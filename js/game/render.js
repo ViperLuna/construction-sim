@@ -53,6 +53,16 @@ export function screenToWorld(cam, cssW, cssH, sx, sy) {
   return { x: (sx - cssW / 2) / cam.zoom + cam.x, y: (sy - cssH / 2) / cam.zoom + cam.y };
 }
 
+function roundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 function rect(ctx, x, y, w, h, fill) {
   ctx.fillStyle = fill;
   ctx.fillRect(x, y, w, h);
@@ -219,9 +229,25 @@ function drawHedges(ctx, lot, progress, active) {
   const trimmed = Math.floor(progress * HEDGE_COUNT + 1e-9);
   fx.hedges.forEach((h, k) => {
     if (k < trimmed) {
-      rect(ctx, h.x - 0.31, h.y - 0.29, 0.66, 0.66, 'rgba(0,0,0,0.18)');
-      rect(ctx, h.x - 0.32, h.y - 0.32, 0.64, 0.64, '#4c9a48');
-      rect(ctx, h.x - 0.32, h.y - 0.32, 0.64, 0.18, '#6fbf5f');
+      // A neat clipped block: shadow, dark front face, lighter top, leaf speckles.
+      // Same dark green as the shaggy shrubs, so it never reads as lawn.
+      const x = h.x - 0.36;
+      const y = h.y - 0.36;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      roundedRect(ctx, x + 0.07, y + 0.1, 0.72, 0.72, 0.13);
+      ctx.fill();
+      ctx.fillStyle = '#25692f';
+      roundedRect(ctx, x, y, 0.72, 0.72, 0.13);
+      ctx.fill();
+      ctx.fillStyle = '#37913f';
+      roundedRect(ctx, x, y, 0.72, 0.5, 0.13);
+      ctx.fill();
+      ctx.fillStyle = '#58b660';
+      for (const [dx, dy] of [[0.18, 0.14], [0.45, 0.12], [0.3, 0.3], [0.56, 0.31]]) {
+        ctx.beginPath();
+        ctx.arc(x + dx, y + dy, 0.045, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       ctx.fillStyle = '#2f6b33';
       for (const [dx, dy, r] of [[-0.11, 0.05, 0.3], [0.13, -0.08, 0.29], [0.02, 0.14, 0.27]]) {

@@ -55,7 +55,16 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[LOCKED]** The map supports **zooming in and out** (a given for the whole game).
 - **[LOCKED]** **Service points:** the property and each store/location has **designated spots** where vehicles go to do their business (garage, fuel pump, parking at the property; loading spot at the lumber yard and stone yard). Arrive, the materials appear in the truck, drive off. No manual loading minigame.
 - **[PROPOSED]** Clearing trees or land on the player's own property could be an in-game job.
-- **[OPEN]** Complete the full expansion list (see below) **before** the map is laid out, so the lot is sized correctly.
+- **[LOCKED]** **Crew commute:** crew do **not** live on the property. Their cars **fade in at the property driveway** at clock-in and **fade out** at clock-out. They don't drive on the town roads, so no employee home addresses are needed. (An optional cosmetic home address on a crew card is allowed later.)
+- **[LOCKED]** **Parking capacity is the crew cap.** More parking is the "more crew" expansion.
+- **[PROPOSED]** **Expansion list** (reserve the space on the map now, design each when we get to it):
+  - *Day one:* small crew house/office space, fuel pump and tank, small garage or carport, parking spot, small tool shed
+  - *Early:* bigger garage with more bays, bulk material yard (mulch, gravel, stone), office, bigger fuel tank, more crew parking
+  - *Mid:* equipment barn/shed, heavy equipment parking, mechanic bay, tool/supply room, dump trailer parking, material bunkers
+  - *Late:* large industrial equipment yard, **tree/plant nursery**, **gravel pit or sand quarry**, salt shed, plow truck fleet, business office building (HR/insurance)
+  - *Flavor:* pond, fire pit, break lawn, flagpole, company sign by the road
+- **[PROPOSED]** The starting developed area is about **a quarter** of the lot. The rest is trees and open ground.
+- **[LOCKED]** **Nursery and gravel pit** are in as late-game expansions (the player eventually makes their own materials).
 
 ## 5. Time, Calendar and Hours
 

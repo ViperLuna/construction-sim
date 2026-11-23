@@ -50,6 +50,12 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[LOCKED]** Starts large enough to house **4 crew members, including the player**.
 - **[LOCKED]** Has an on-site **fuel pump** with a reservoir (see Fuel).
 - **[PROPOSED]** Expansion hooks: garage bays, storage/material yard, office, bigger fuel tank.
+- **[LOCKED]** The **full property, including all future expansion space, exists on the map from the start**. The undeveloped part is trees and open ground. Trees act as camouflage for space we haven't planned yet.
+- **[LOCKED]** The property is **deliberately oversized**, so there's room for expansions nobody has thought of yet. Design the map with room to spare, not a tight fit.
+- **[LOCKED]** The map supports **zooming in and out** (a given for the whole game).
+- **[LOCKED]** **Service points:** the property and each store/location has **designated spots** where vehicles go to do their business (garage, fuel pump, parking at the property; loading spot at the lumber yard and stone yard). Arrive, the materials appear in the truck, drive off. No manual loading minigame.
+- **[PROPOSED]** Clearing trees or land on the player's own property could be an in-game job.
+- **[OPEN]** Complete the full expansion list (see below) **before** the map is laid out, so the lot is sized correctly.
 
 ## 5. Time, Calendar and Hours
 

@@ -11,14 +11,122 @@ function angleDelta(from, to) {
   return d;
 }
 
+const CORNER_RADIUS = 1.1; // tiles; tighter on short road pieces
+const CORNER_STEPS = 8;
+
+// Turns a list of road nodes into a smooth driving line: each straight run is
+// shifted into the right-hand lane, and every corner is rounded with a small
+// curve so the truck turns instead of snapping.
+export function buildLanePath(world, nodeIds, start) {
+  const L = CONFIG.laneOffset;
+
+  // One lane-offset segment per road edge...
+  let segs = [];
+  for (let i = 0; i < nodeIds.length - 1; i++) {
+    const a = world.nodes[nodeIds[i]];
+    const b = world.nodes[nodeIds[i + 1]];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const dx = (b.x - a.x) / len;
+    const dy = (b.y - a.y) / len;
+    segs.push({ ax: a.x - dy * L, ay: a.y + dx * L, bx: b.x - dy * L, by: b.y + dx * L, dx, dy });
+  }
+  // ...merged when they continue in a straight line.
+  const merged = [];
+  for (const s of segs) {
+    const last = merged[merged.length - 1];
+    if (last && Math.abs(last.dx - s.dx) < 1e-6 && Math.abs(last.dy - s.dy) < 1e-6) {
+      last.bx = s.bx;
+      last.by = s.by;
+    } else {
+      merged.push({ ...s });
+    }
+  }
+  segs = merged;
+
+  const len = (s) => Math.hypot(s.bx - s.ax, s.by - s.ay);
+  const pts = [{ x: start.x, y: start.y }];
+  const push = (x, y) => {
+    const p = pts[pts.length - 1];
+    if (Math.hypot(p.x - x, p.y - y) > 1e-4) pts.push({ x, y });
+  };
+
+  // If the first leg heads back the way the truck came from, make a U-turn:
+  // a half-circle that swings across to the other lane, bulging forward.
+  if (segs.length) {
+    const hx = Math.cos(start.heading);
+    const hy = Math.sin(start.heading);
+    const first = segs[0];
+    if (hx * first.dx + hy * first.dy < -0.5) {
+      const ex = first.ax;
+      const ey = first.ay;
+      const cx = (start.x + ex) / 2;
+      const cy = (start.y + ey) / 2;
+      const rx = start.x - cx;
+      const ry = start.y - cy;
+      if (Math.hypot(rx, ry) > 0.05) {
+        // Pick the rotation direction whose midpoint is ahead of the truck.
+        let dir = 1;
+        const midAhead = (sign) => {
+          const mx = cx + (-ry * sign);
+          const my = cy + rx * sign;
+          return (mx - start.x) * hx + (my - start.y) * hy;
+        };
+        if (midAhead(1) < midAhead(-1)) dir = -1;
+        for (let i = 1; i <= 12; i++) {
+          const a = (i / 12) * Math.PI * dir;
+          push(cx + rx * Math.cos(a) - ry * Math.sin(a), cy + rx * Math.sin(a) + ry * Math.cos(a));
+        }
+      }
+    }
+  }
+
+  // Where lane lines k and k+1 meet, and how much to cut back from each side.
+  const corners = [];
+  for (let k = 0; k < segs.length - 1; k++) {
+    const s = segs[k];
+    const n = segs[k + 1];
+    const cross = s.dx * n.dy - s.dy * n.dx;
+    if (Math.abs(cross) < 1e-6) {
+      corners.push(null); // straight-through reversal: no curve possible
+      continue;
+    }
+    const t = ((n.ax - s.ax) * n.dy - (n.ay - s.ay) * n.dx) / cross;
+    const c = { x: s.ax + s.dx * t, y: s.ay + s.dy * t };
+    corners.push({ c, r: Math.min(CORNER_RADIUS, len(s) / 2.2, len(n) / 2.2) });
+  }
+
+  for (let k = 0; k < segs.length; k++) {
+    const s = segs[k];
+    const inC = k > 0 ? corners[k - 1] : null;
+    const outC = k < segs.length - 1 ? corners[k] : null;
+    push(inC ? inC.c.x + s.dx * inC.r : s.ax, inC ? inC.c.y + s.dy * inC.r : s.ay);
+    if (outC) {
+      const a = { x: outC.c.x - s.dx * outC.r, y: outC.c.y - s.dy * outC.r };
+      const n = segs[k + 1];
+      const b = { x: outC.c.x + n.dx * outC.r, y: outC.c.y + n.dy * outC.r };
+      push(a.x, a.y);
+      for (let i = 1; i <= CORNER_STEPS; i++) {
+        const u = i / CORNER_STEPS;
+        const m = 1 - u;
+        push(m * m * a.x + 2 * m * u * outC.c.x + u * u * b.x, m * m * a.y + 2 * m * u * outC.c.y + u * u * b.y);
+      }
+    } else {
+      push(s.bx, s.by);
+    }
+  }
+  return pts;
+}
+
 export class Truck {
   constructor(world, startNodeId) {
     this.world = world;
     this.nodeId = startNodeId;
     const n = world.nodes[startNodeId];
-    this.x = n.x;
-    this.y = n.y;
     this.heading = -Math.PI / 2; // facing north, out toward the gate
+    // Start already in the right-hand lane (east side when facing north), so
+    // the first trip doesn't slide sideways.
+    this.x = n.x + CONFIG.laneOffset;
+    this.y = n.y;
     this.state = 'parked'; // 'parked' | 'driving'
     this.pts = [];
     this.cum = [];
@@ -44,21 +152,7 @@ export class Truck {
       return { tiles: 0, minutes: 0 };
     }
 
-    // Build a lane-offset polyline: one segment per road edge, shifted to the
-    // right of the direction of travel. Corners are cut by the straight line
-    // between segments, which reads as a turn.
-    const pts = [{ x: this.x, y: this.y }];
-    for (let i = 0; i < route.path.length - 1; i++) {
-      const a = this.world.nodes[route.path[i]];
-      const b = this.world.nodes[route.path[i + 1]];
-      const len = Math.hypot(b.x - a.x, b.y - a.y);
-      const dx = (b.x - a.x) / len;
-      const dy = (b.y - a.y) / len;
-      const rx = -dy * CONFIG.laneOffset;
-      const ry = dx * CONFIG.laneOffset;
-      pts.push({ x: a.x + rx, y: a.y + ry });
-      pts.push({ x: b.x + rx, y: b.y + ry });
-    }
+    const pts = buildLanePath(this.world, route.path, { x: this.x, y: this.y, heading: this.heading });
     this.pts = pts;
     this.cum = [0];
     for (let i = 1; i < pts.length; i++) {
@@ -72,9 +166,11 @@ export class Truck {
 
   update(gameMinutes) {
     if (this.state !== 'driving' || gameMinutes <= 0) return;
+    const before = Math.min(this.travelled, this.cum[this.cum.length - 1]);
     this.travelled += gameMinutes * CONFIG.truckTilesPerGameMinute;
     const total = this.cum[this.cum.length - 1];
     const t = Math.min(this.travelled, total);
+    const moved = t - before;
 
     // Find the polyline segment containing distance t.
     let i = 1;
@@ -87,9 +183,10 @@ export class Truck {
     this.y = a.y + (b.y - a.y) * f;
 
     if (segLen > 0.001) {
+      // Follow the path's direction. Smoothing is by distance travelled (not
+      // time), so it looks the same at 1x, 2x and 4x, and at any frame rate.
       const want = Math.atan2(b.y - a.y, b.x - a.x);
-      const turn = angleDelta(this.heading, want);
-      this.heading += turn * Math.min(1, gameMinutes * 3);
+      this.heading += angleDelta(this.heading, want) * (1 - Math.exp(-moved / 0.12));
     }
 
     if (this.travelled >= total) {

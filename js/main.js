@@ -8,7 +8,8 @@ import { createEconomy, formatMoneyShort, formatMoneyFull } from './game/economy
 import { Dispatcher } from './game/dispatcher.js';
 import { STAT_KEYS, STAT_SHORT, STAT_LABELS, MAX_STAT, RARITIES, xpToNext, cashNeededFor, acceptChance } from './game/crew.js';
 import { createCamera, render, screenToWorld } from './game/render.js';
-import { canSave, serialize, restore, readSave, readSaveText, writeSave, clearSave, parseSaveText } from './game/save.js';
+import { canSave, serialize, restore, parseSaveText } from './game/save.js';
+import { SaveStore } from './game/storage.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -25,13 +26,33 @@ const settingsDialog = $('settings-dialog');
 
 let game = null;
 let saveBlocked = false; // set while the page is about to reload with different save data
-let existingSave = readSave(); // null if there isn't one (or it can't be read)
+const store = new SaveStore(); // IndexedDB first, with a localStorage mirror
+let existingSave = null; // the newest save found when the page opened, if any
+let saveInfo = null; // { savedAt, bytes, where } for the Settings screen
+
+function describeSave(data, text, source) {
+  return { savedAt: data.savedAt, bytes: new TextEncoder().encode(text).length, where: source };
+}
 
 function refreshTitle() {
   $('btn-play').textContent = existingSave ? 'Continue' : 'Play';
   $('btn-newgame').hidden = !existingSave;
 }
-refreshTitle();
+
+// Reading IndexedDB takes a moment, so Play waits for it.
+$('btn-play').disabled = true;
+$('btn-play').textContent = 'Loading…';
+store
+  .load()
+  .then((found) => {
+    existingSave = found ? found.data : null;
+    saveInfo = found ? describeSave(found.data, found.text, found.source) : null;
+  })
+  .catch(() => {})
+  .finally(() => {
+    $('btn-play').disabled = false;
+    refreshTitle();
+  });
 
 $('btn-play').addEventListener('click', () => {
   unlock(); // browsers only allow sound after a tap
@@ -47,10 +68,10 @@ $('btn-play').addEventListener('click', () => {
   game.start();
 });
 
-$('btn-newgame').addEventListener('click', () => {
+$('btn-newgame').addEventListener('click', async () => {
   if (!confirm('Start a new game? Your saved game will be deleted.')) return;
   saveBlocked = true; // otherwise closing the page would just save the old game again
-  clearSave();
+  await store.clear();
   location.reload();
 });
 
@@ -72,25 +93,28 @@ $('btn-fullscreen').addEventListener('click', async () => {
 });
 
 // ---------- save data (in settings) ----------
+function formatBytes(n) {
+  return n < 1024 ? `${n} bytes` : `${(n / 1024).toFixed(1)} KB`;
+}
+
 function refreshSaveBox() {
-  const text = readSaveText();
-  const stored = readSave();
-  const when = stored ? new Date(stored.savedAt).toLocaleString() : null;
-  $('save-info').textContent = stored ? `Last saved ${when}.` : 'No saved game yet.';
+  $('save-info').textContent = saveInfo
+    ? `Last saved ${new Date(saveInfo.savedAt).toLocaleString()} · ${formatBytes(saveInfo.bytes)} · kept in IndexedDB and localStorage.`
+    : 'No saved game yet.';
   $('btn-save-now').disabled = !game || !game.canSaveNow();
-  $('btn-save-export').disabled = !text;
+  $('btn-save-export').disabled = !saveInfo && !(game && game.canSaveNow());
 }
 
 $('btn-save-now').addEventListener('click', () => {
   $('settings-msg').textContent = game && game.saveNow() ? 'Saved.' : "Can't save right now. It works when the crew is home.";
-  refreshSaveBox();
+  setTimeout(refreshSaveBox, 150);
 });
 
-$('btn-save-export').addEventListener('click', () => {
+$('btn-save-export').addEventListener('click', async () => {
   if (game) game.saveNow(); // make sure the file has the latest
-  const text = readSaveText();
-  if (!text) return;
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const found = await store.load();
+  if (!found) return;
+  const url = URL.createObjectURL(new Blob([found.text], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = 'construction-sim-save.json';
@@ -109,7 +133,8 @@ $('file-import').addEventListener('change', async (e) => {
     const data = parseSaveText(await file.text());
     if (!confirm('Replace your current saved game with this file?')) return;
     saveBlocked = true; // keep the running game from saving over the import
-    if (!writeSave(data)) {
+    const result = await store.save(data).done;
+    if (!result.ok) {
       saveBlocked = false;
       throw new Error('Could not store the save (is browser storage blocked?).');
     }
@@ -199,9 +224,13 @@ function createGame(savedData) {
 
   function saveNow() {
     if (saveBlocked || !canSave(ctxForSave)) return false;
-    const ok = writeSave(serialize(ctxForSave));
-    if (ok) dirty = false;
-    return ok;
+    const data = serialize(ctxForSave);
+    const result = store.save(data);
+    dirty = false;
+    result.done.then((r) => {
+      if (r.ok) saveInfo = { savedAt: data.savedAt, bytes: r.bytes, where: r.primaryOk ? 'IndexedDB' : 'localStorage' };
+    });
+    return true;
   }
 
   const setStatus = (text) => {

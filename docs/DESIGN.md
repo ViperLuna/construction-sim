@@ -462,6 +462,7 @@ The player (as owner) is paid from what remains (see 6.1).
 
 ### 11.1 Saving
 - **[LOCKED]** Saves live in the browser via local storage and/or IndexedDB.
+- **[BUILT]** **Two storage homes:** saves go to **IndexedDB** (the main one, with far more room than localStorage's ~5 MB) and are mirrored to **localStorage** (written instantly as a page closes, and the fallback if IndexedDB is blocked). On load, both are read and the newer save wins. A save is about 5 KB after months of play, so room isn't a worry yet.
 - **[BUILT]** **Autosave** whenever the crew is home and nothing is in motion (after each trip home, after hiring or booking work, and at End Day), plus a manual **Save now** and **export/import of save files** in Settings. Closing the page mid-trip loses at most that one trip. The title screen offers **Continue** and **New Game**. Saves carry a version number, and files from other versions or with bad data are rejected instead of crashing the game.
 - **[PROPOSED]** Ask the browser for **persistent storage** so saves are less likely to be cleared.
 - **[LOCKED]** On some phones, **browser storage and the installed app's storage are separate**, so a save made in the browser may not appear in the installed app. **Export/import** is the answer.

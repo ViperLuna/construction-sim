@@ -1,4 +1,5 @@
-// Saving and loading (see docs/DESIGN.md, section 11.1).
+// Saving and loading (see docs/DESIGN.md, section 11.1). This file turns a game
+// into plain data and back; where the data is kept lives in storage.js.
 //
 // The game saves whenever the crew is home and nothing is in motion: after each
 // job's trip home, and at End Day. That keeps a save simple (no half-finished
@@ -85,42 +86,6 @@ export function restore({ world, clock, economy, dispatcher, truck }, data) {
   dispatcher.active = null;
   for (const l of world.lots) l.work = null;
   truck.placeAtHome();
-}
-
-// ----- storage (localStorage; wrapped because it can be blocked or full) -----
-export function readSaveText(storage = globalThis.localStorage) {
-  try {
-    return storage.getItem(SAVE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function readSave(storage) {
-  const text = readSaveText(storage);
-  if (!text) return null;
-  try {
-    return validate(JSON.parse(text));
-  } catch {
-    return null;
-  }
-}
-
-export function writeSave(data, storage = globalThis.localStorage) {
-  try {
-    storage.setItem(SAVE_KEY, JSON.stringify(data));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function clearSave(storage = globalThis.localStorage) {
-  try {
-    storage.removeItem(SAVE_KEY);
-  } catch {
-    /* nothing to do */
-  }
 }
 
 export function parseSaveText(text) {

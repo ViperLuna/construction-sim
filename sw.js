@@ -24,6 +24,7 @@ const ASSETS = [
   './js/game/economy.js',
   './js/game/crew.js',
   './js/game/save.js',
+  './js/game/storage.js',
   './js/game/dispatcher.js',
   './js/game/render.js',
   './icons/icon.svg',

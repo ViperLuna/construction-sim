@@ -458,17 +458,32 @@ test('working earns the crew XP, and spending points makes them faster', () => {
 });
 
 // ---------------------------------------------------------------- saving
-import { serialize, restore, canSave, validate, parseSaveText, writeSave, readSave, clearSave, readSaveText, SAVE_KEY } from '../js/game/save.js';
+import { serialize, restore, canSave, validate, parseSaveText } from '../js/game/save.js';
+import { SaveStore, localStorageBackend } from '../js/game/storage.js';
 
 const strip = (save) => ({ ...save, savedAt: 0 });
 
-function memoryStorage() {
-  const data = new Map();
-  return {
-    getItem: (k) => (data.has(k) ? data.get(k) : null),
-    setItem: (k, v) => void data.set(k, String(v)),
-    removeItem: (k) => void data.delete(k),
+// A stand-in for a storage backend, so the logic can be tested without a browser.
+function fakeBackend(name, { sync = false, failWrites = false, failReads = false } = {}) {
+  const b = {
+    name,
+    text: null,
+    async read() {
+      if (failReads) throw new Error('blocked');
+      return b.text;
+    },
+    async write(text) {
+      if (failWrites) return false;
+      b.text = text;
+      return true;
+    },
+    async clear() {
+      b.text = null;
+      return true;
+    },
   };
+  if (sync) b.writeNow = (text) => (failWrites ? false : ((b.text = text), true));
+  return b;
 }
 
 // A game with some history: jobs done, an employee hired and levelled, work queued.
@@ -531,22 +546,80 @@ test("saving is only offered when the crew is home and idle", () => {
   assert.ok(canSave(ctx), 'home again');
 });
 
-test('storage: write, read back, clear; broken or foreign data is ignored, never a crash', () => {
-  const storage = memoryStorage();
-  assert.equal(readSave(storage), null);
+test('storage: a save goes to both homes and reads back; clearing wipes both', async () => {
+  const idb = fakeBackend('IndexedDB');
+  const ls = fakeBackend('localStorage', { sync: true });
+  const store = new SaveStore(idb, ls);
+  assert.equal(await store.load(), null, 'nothing saved yet');
   const saved = serialize(setup());
-  assert.ok(writeSave(saved, storage));
-  assert.deepEqual(strip(readSave(storage)), strip(saved));
-  clearSave(storage);
-  assert.equal(readSave(storage), null);
+  const result = await store.save(saved).done;
+  assert.deepEqual([result.primaryOk, result.mirrorOk, result.ok], [true, true, true]);
+  assert.ok(idb.text && ls.text, 'written to both');
+  const found = await store.load();
+  assert.deepEqual(strip(found.data), strip(saved));
+  await store.clear();
+  assert.equal(idb.text, null);
+  assert.equal(ls.text, null);
+  assert.equal(await store.load(), null);
+});
 
-  storage.setItem(SAVE_KEY, '{not json');
-  assert.equal(readSave(storage), null);
-  storage.setItem(SAVE_KEY, JSON.stringify({ v: 99 }));
-  assert.equal(readSave(storage), null);
-  const full = { getItem: () => null, setItem: () => { throw new Error('quota'); }, removeItem: () => {} };
-  assert.equal(writeSave(saved, full), false, 'a full or blocked storage just reports failure');
-  assert.equal(readSaveText({ getItem: () => { throw new Error('blocked'); } }), null);
+test('storage: when the two copies differ, the newer one wins', async () => {
+  const idb = fakeBackend('IndexedDB');
+  const ls = fakeBackend('localStorage', { sync: true });
+  const store = new SaveStore(idb, ls);
+  const old = { ...serialize(setup()), savedAt: 1000 };
+  const fresh = { ...serialize(setup()), savedAt: 2000 };
+  fresh.economy = { ...fresh.economy, money: 999 };
+  idb.text = JSON.stringify(old); // IndexedDB write got cut off as the page closed
+  ls.text = JSON.stringify(fresh); // but the instant localStorage write made it
+  let found = await store.load();
+  assert.equal(found.data.economy.money, 999);
+  assert.equal(found.source, 'localStorage');
+  idb.text = JSON.stringify({ ...fresh, savedAt: 3000, economy: { ...fresh.economy, money: 1 } });
+  found = await store.load();
+  assert.equal(found.data.economy.money, 1);
+  assert.equal(found.source, 'IndexedDB');
+});
+
+test('storage: either home can be broken, full or blocked and the game still saves and loads', async () => {
+  const saved = serialize(setup());
+  // IndexedDB blocked (some private windows): localStorage carries it
+  let idb = fakeBackend('IndexedDB', { failWrites: true, failReads: true });
+  let ls = fakeBackend('localStorage', { sync: true });
+  let store = new SaveStore(idb, ls);
+  let result = await store.save(saved).done;
+  assert.deepEqual([result.primaryOk, result.mirrorOk, result.ok], [false, true, true]);
+  assert.deepEqual(strip((await store.load()).data), strip(saved));
+  // localStorage full: IndexedDB carries it
+  idb = fakeBackend('IndexedDB');
+  ls = fakeBackend('localStorage', { sync: true, failWrites: true, failReads: false });
+  store = new SaveStore(idb, ls);
+  result = await store.save(saved).done;
+  assert.deepEqual([result.primaryOk, result.mirrorOk, result.ok], [true, false, true]);
+  assert.deepEqual(strip((await store.load()).data), strip(saved));
+  // both broken: it says so instead of pretending
+  store = new SaveStore(fakeBackend('a', { failWrites: true }), fakeBackend('b', { sync: true, failWrites: true }));
+  assert.equal((await store.save(saved).done).ok, false);
+});
+
+test('storage: junk, foreign or half-written saves are ignored', async () => {
+  const good = JSON.stringify(serialize(setup()));
+  const store = new SaveStore(fakeBackend('IndexedDB'), fakeBackend('localStorage', { sync: true }));
+  for (const junk of ['{not json', '{"v":99}', '', 'null', '[]']) {
+    store.primary.text = junk;
+    store.mirror.text = junk;
+    assert.equal(await store.load(), null, `ignored: ${junk}`);
+  }
+  store.primary.text = '{broken';
+  store.mirror.text = good;
+  assert.ok(await store.load(), 'one good copy is enough');
+});
+
+test('the real localStorage backend never throws, even when the browser blocks or fills it', async () => {
+  const blocked = localStorageBackend({ getItem() { throw new Error('blocked'); }, setItem() { throw new Error('full'); }, removeItem() { throw new Error('blocked'); } });
+  assert.equal(await blocked.read(), null);
+  assert.equal(blocked.writeNow('x'), false);
+  assert.equal(await blocked.clear(), false);
 });
 
 test('imported save files are checked', () => {

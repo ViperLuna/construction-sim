@@ -1,0 +1,203 @@
+# Construction Sim: Design Document
+
+> Living document. Updated as the roundtable talks continue.
+> Status legend: **[LOCKED]** decided by the owner, **[PROPOSED]** suggested, awaiting a decision, **[OPEN]** unanswered question.
+
+---
+
+## 1. Vision
+
+A top-down 2D landscaping/construction business sim, played in the browser and hosted on GitHub Pages. The player runs a small crew company in a small town. They accept jobs, schedule crews, drive trucks to real addresses, buy materials, and watch the work get built piece by piece on the map. Work starts simple (mowing) and grows into landscaping, hardscaping, and eventually full construction with heavy equipment.
+
+**Tone:** cozy but with real business tension. Every job should raise the question "is this actually worth it?"
+
+## 2. Technical Constraints
+
+- **[LOCKED]** Hosted on GitHub Pages (static files only, deployed via GitHub Actions).
+- **[LOCKED]** Top-down 2D.
+- **[LOCKED]** Persistence via browser storage (localStorage and/or IndexedDB). No server.
+- **[PROPOSED]** Plain HTML/CSS/JS with Canvas, no framework required. Revisit before coding.
+- **[PROPOSED]** Three strictly separated layers:
+  1. **Simulation:** clock, calendar, crews, jobs, money, weather. Numbers only, no drawing.
+  2. **World:** map, streets, addresses, road graph.
+  3. **Presentation:** truck animation, staged work visuals, UI. It only plays back what the simulation decided.
+- **[PROPOSED]** All content (job types, materials, crew names, map lots, equipment) lives in data files, so new content never needs engine changes.
+- **[PROPOSED]** Save data is versioned so old saves can migrate as the game changes.
+- **[LOCKED]** Customization is a goal: make as much as possible configurable (hours, names, settings, and so on).
+
+## 3. The Map
+
+- **[LOCKED]** Small-scale visuals, but a map large enough to matter.
+- **[LOCKED]** Minimum areas:
+  - 2 residential neighborhoods
+  - A business area
+  - Downtown
+  - Farm areas
+  - The player's property
+- **[LOCKED]** Real street names and real addresses. Every job goes to an actual address on the map.
+- **[LOCKED]** Supply locations are real places the crew can drive to, such as a lumber yard and a stone/landscape supply yard.
+- **[PROPOSED]** Target roughly 100-150 addressable lots at launch.
+- **[PROPOSED]** The map is hand-designed but stored as data (grid/tiles plus a road graph), so it can expand later.
+- **[PROPOSED]** Trucks pathfind along the road graph. Drive time is derived from route distance and truck speed.
+
+## 4. Player Property
+
+- **[LOCKED]** Starts small, with room to expand.
+- **[LOCKED]** Starts large enough to house **4 crew members, including the player**.
+- **[LOCKED]** Has an on-site **fuel pump** with a reservoir (see Fuel).
+- **[PROPOSED]** Expansion hooks: garage bays, storage/material yard, office, bigger fuel tank.
+
+## 5. Time, Calendar and Hours
+
+- **[LOCKED]** The player sets business hours. **Default: 7:00 AM to 5:00 PM, Monday to Friday.**
+- **[LOCKED]** Days run in game-time with a pace/fast-forward control.
+- **[LOCKED]** **After-hours skip:** when nobody is working, the player can skip ahead. It is **always manual**, available at the end of the shift only, because the player may want to do things (hire, buy, configure) before the next day starts. Nothing auto-advances past end of shift.
+- **[LOCKED]** The calendar shows jobs and who is working on each day.
+- **[PROPOSED]** The calendar shows the weather forecast.
+
+## 6. Crew
+
+### 6.1 Roster
+- **[LOCKED]** A **Crew** section lets the player view the crew and hire new members.
+- **[LOCKED]** Starting hires are low-skill and cheap. Example: **$12/hour**. Better workers cost more.
+- **[LOCKED]** Better crew means better work quality, which means better results on jobs.
+- **[PROPOSED]** Each crew member has: name, skill (overall, and later per job category), wage, schedule, employment type, and optional traits.
+
+### 6.2 The Player ("Myself")
+- **[LOCKED]** The player is a crew member and can be scheduled like anyone else.
+- **[LOCKED]** The player has a wide array of capabilities (owner-level skill) but can still only do **one person's worth of work**.
+- **[LOCKED]** The player is **not paid hourly**. They are the owner, and their income is **whatever profit remains** from jobs. The player has to schedule jobs so the company earns enough to cover their own "salary." Pay depends on the work done, not on showing up.
+- **[OPEN]** How is the owner's take defined? Options: (a) free withdrawals from the company bank, (b) a draw the player sets, (c) a running profit tally. See open questions.
+
+### 6.3 Employment and Schedules
+- **[LOCKED]** Every crew member (including the player) can be scheduled for certain days and hours.
+- **[LOCKED]** **Full-time:** works the full business day. The player only chooses their **days**.
+- **[LOCKED]** **Part-time:** the player chooses both **days and hours**.
+- **[LOCKED]** Employees are paid **hourly from clock-in to clock-out**, not per job. This includes drive time and idle time on the clock.
+
+### 6.4 Crew Teams
+- **[LOCKED]** Crew members are assigned to teams, named **"Crew (n)"** by default and renamable.
+- **[LOCKED]** Some jobs require 2 or more people. They can be done with fewer, but take **mathematically more time**.
+- **[PROPOSED]** Understaffed efficiency is not a straight multiple. For example, a 2-person job done by 1 person takes about 1.6-1.8x as long, because some of the work parallelizes and some doesn't. To be tuned.
+- **[PROPOSED]** A team can only be dispatched with members who are on shift at that time.
+
+## 7. Vehicles and Equipment
+
+- **[LOCKED]** The player starts with a **slow half-ton truck that seats 2**.
+- **[LOCKED]** Single-person jobs (mowing, raking, cleaning, hauling junk, and so on) can be done by one person.
+- **[PROPOSED]** A crew larger than a vehicle's seats needs additional vehicles, which gives the player a reason to upgrade.
+- **[LOCKED]** **Tools can be rented** (chainsaw, small bulldozer, front loader, and so on), scaling up to **renting or owning large industrial equipment much later in the game**.
+- **[LOCKED]** Some job offers require equipment or crew the player doesn't have. They show up on the board but can't be accepted yet, which shows what to work toward.
+- **[PROPOSED]** Rented equipment has a daily rate and has to be picked up and returned, ideally as a real map errand.
+
+## 8. Fuel
+
+- **[LOCKED]** The property has a **fuel pump with a reservoir**, which **starts full**.
+- **[LOCKED]** There is **one fuel type**. Everything that burns fuel uses the same liquid. No gasoline/diesel distinction.
+- **[LOCKED]** **Price is a flat $3.00 per gallon.**
+- **[LOCKED]** Fuel is **ordered**, and delivery takes **one business day**. **Nothing is delivered on weekends**, so anyone working Saturday or Sunday has to watch their fuel and order ahead.
+- **[PROPOSED]** Reservoir capacity: **500 gallons** at the start. Real farm and small-business tanks are commonly 250-1,000 gallons. Upgradeable later. **[OPEN to confirm]**
+- **[PROPOSED]** The truck burns fuel by distance driven (starting around 14-16 mpg for a slow half-ton). Equipment burns fuel per hour of use.
+- **[PROPOSED]** A truck also has its own tank, refilled from the property pump. Running a truck dry strands the crew.
+- **[OPEN]** Whether to add public gas stations as an emergency option at a higher price.
+
+## 9. Jobs
+
+### 9.1 Job Offers
+- **[LOCKED]** Jobs come from a **daily list of offers** that appear each day, similar to a gacha-style draw.
+  - Mostly easy jobs the player can do now.
+  - Some jobs that need more crew, tools or skill than the player has.
+- **[PROPOSED]** The offer pool is weighted by job type, company reputation, and progression.
+- **[PROPOSED]** Offers expire if not accepted.
+
+### 9.2 Job Definition (data-driven)
+Each job type defines:
+- Name and category
+- Minimum and recommended crew size
+- Base work time (for one average worker)
+- Required equipment and materials
+- Weather sensitivity
+- Pay range and expected quality rating
+- A **staged visual build sequence** (see 9.5)
+
+### 9.3 Cost and Profit Model
+When viewing an offer, the player sees **offered pay against estimated cost**:
+- Labor (hourly wages for all on-the-clock time, including driving)
+- Fuel
+- Materials (grass seed, mulch, rocks, railroad ties, rebar, and so on)
+- Equipment rental
+- **[LOCKED]** The player is expected to reject bad jobs. Profitability judgment is core gameplay.
+
+### 9.4 Scheduling Rules
+- **[LOCKED]** Accepted jobs are **scheduled automatically** into a day and time block.
+- **[LOCKED]** Each block is built from the job's **average completion time, plus extra padding** so jobs are not crammed in where they might not finish.
+- **[LOCKED]** The block must also include **travel time** and any **other required stops** (such as picking up materials).
+- **[PROPOSED]** Block length = (base work time ÷ crew efficiency) + drive time + load/setup time + buffer (about 15-25 percent, larger in bad weather).
+- **[PROPOSED]** The scheduler finds the first slot where a suitable crew is free and the block fits inside working hours.
+
+### 9.5 Visual Build Sequence
+- **[LOCKED]** Work is **displayed on the map**. Pieces appear a little at a time as the job progresses.
+- **[LOCKED]** Visuals look a bit "half-assed" in progress, then turn out finished. Example: a flower bed goes from marked out, to dug, to edging placed piece by piece, to soil, to plants.
+- **[PROPOSED]** Visual progress is tied to simulated job progress. Crew skill affects the final look (crooked edging for sloppy crews).
+- **[LOCKED]** The list of job types will be worked out together in the roundtable and must each be representable on the map.
+
+### 9.6 Overruns and Ratings
+- **[LOCKED]** If a job isn't finished in its block, it **must be finished the next morning**.
+- **[LOCKED]** An overrun **lowers the job rating, which lowers pay.**
+- **[LOCKED]** Each job has an expected rating, and quality matters more the better the crew should be.
+- **[PROPOSED]** Rating inputs: crew skill, on-time completion, weather, and whether the job was understaffed.
+
+## 10. Weather
+
+- **[LOCKED]** Rain, snow, wind and so on happen occasionally.
+- **[LOCKED]** Weather **hinders certain jobs and makes them take longer.**
+- **[PROPOSED]** Each job type has weather sensitivities. Weather either multiplies the time or blocks the job entirely, which bumps it to the next workable day.
+- **[PROPOSED]** A simple forecast (1-3 days out) so the player can plan.
+
+## 11. Economy Summary
+
+| Money in | Money out |
+|---|---|
+| Job payments (modified by rating) | Hourly crew wages (clock-in to clock-out) |
+| | Fuel ($3/gal) |
+| | Materials |
+| | Equipment rental / purchase |
+| | Property upgrades |
+
+The player (as owner) is paid from what remains. See open questions.
+
+## 12. Persistence
+
+- **[LOCKED]** Saves live in the browser via local storage and/or a local DB (IndexedDB).
+- **[PROPOSED]** Autosave at end of day, plus manual save and export/import of save files so players don't lose progress if browser data is cleared.
+
+## 13. Milestones (Proposed Build Order)
+
+Nothing gets coded until the design settles. When it does, build in small, playable slices:
+
+1. **Map and truck:** one road, a few lots, a truck driving between addresses.
+2. **Clock and calendar:** day/hour flow, business hours, manual end-of-day skip.
+3. **First job:** one mowing job end to end, with staged visuals and pay.
+4. **Money and costs:** wages, fuel, pump and reservoir, job profit screen.
+5. **Crew:** hiring, schedules, teams, ratings.
+6. **Job board:** daily offers, more job types, materials and supply yards.
+7. **Weather and overruns.**
+8. **Equipment rental and expansion.**
+9. **Full map, polish, saves.**
+
+## 14. Open Questions
+
+1. **Owner pay:** free withdrawals, a player-set draw, or just a profit tally?
+2. **Fuel tank size:** is 500 gallons okay as the start?
+3. **Public gas stations:** include as an emergency option, or not?
+4. **Failure states:** can the player go bankrupt or lose, or is the worst case just slow progress?
+5. **Reputation:** does the company have a rating or reputation that affects which offers show up?
+6. **Pace:** how long should one game day take in real time at normal speed?
+7. **Art style:** flat/simple shapes, pixel art, or something else?
+8. **Pay during idle time:** employees are paid while clocked in. If no job is scheduled for them, are they still paid? (Probably yes, which punishes under-booking.)
+9. **Job type list:** to be brainstormed together (mowing, raking, hauling, mulching, flower beds, fencing, retaining walls, patios, and beyond).
+10. **Map layout and street names:** to be designed together.
+
+---
+
+*Last updated: initial draft from roundtable discussion.*

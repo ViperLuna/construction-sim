@@ -232,4 +232,87 @@ Nothing gets coded until the design settles. When it does, build in small, playa
 
 ---
 
-*Last updated: initial draft from roundtable discussion.*
+## 15. Recurring Customers
+
+- **[LOCKED]** Some jobs (especially **mowing**) can be **recurring customers**, for example "mow every week."
+- **[LOCKED]** The **player can cancel** a recurring customer, for instance when bigger jobs need the time slot.
+- **[LOCKED]** **Customers can cancel on their own**, like real life.
+- **[PROPOSED]** Recurring jobs are auto-placed in the calendar like any accepted job. They are stable income, but they fill the schedule.
+- **[PROPOSED]** Reasons a customer might cancel: repeated low ratings, missed or late visits, moving away, or random churn. Cancelling a customer on them has a small reputation cost.
+- **[OPEN]** Notice periods, whether the player can raise prices on recurring customers, and how many can be active at once.
+
+## 16. Seasons and Snow
+
+- **[LOCKED]** The game has **seasons**, including **winter with snow work**.
+- **[LOCKED]** Snow work **starts small and grows**:
+  1. Shovel walks and driveways (solo, basic tools)
+  2. Plow truck (blade on a truck) for driveways and lots
+  3. Larger plow truck
+  4. **Salt/plow truck** for **streets**
+- **[PROPOSED]** Seasonal swing: fall = leaf cleanup rush, winter = snow work and slow landscaping, spring = mulch/planting/cleanup rush, summer = mowing peak and storm cleanup. Players who don't plan for winter income will be paying idle crews.
+
+## 17. Job Catalog (Draft, rough numbers for tuning)
+
+Times are for **one average worker** and are starting guesses only. "Weather" is what hurts the job most. "Stages" is the visual build sequence.
+
+### Tier 1: Solo, half-ton truck, basic tools
+| Job | Time | Crew (min/best) | Materials | Weather | Stages |
+|---|---|---|---|---|---|
+| Mow lawn | 1 h | 1/1 | none | rain | Stripes appear across the grass |
+| Rake leaves | 1.5 h | 1/2 | bags | rain, wind | Scattered leaves, then raked piles, then bagged |
+| Trim hedges / weed-eat | 1 h | 1/1 | none | rain | Shrubs square off, edges cleaned |
+| Weed / bed cleanup | 1.5 h | 1/2 | none | rain | Weeds vanish one by one |
+| Gutter cleaning | 1 h | 1/2 | none | rain, wind | Debris cleared along the roofline |
+| Pressure wash drive/deck | 2 h | 1/1 | none | freezing | A clean stripe sweeps across the grime |
+| Junk haul / cleanout | 2 h | 1/2 | dump fee | rain | Junk pile loaded into the truck bed |
+| Seasonal yard cleanup | 3 h | 1/2 | bags | rain, wind | Combination of raking, trimming, hauling |
+| Shovel walks/driveway | 1 h | 1/2 | none | n/a (needs snow) | Snow cleared in lanes |
+
+### Tier 2: Small materials jobs
+| Job | Time | Crew (min/best) | Materials | Weather | Stages |
+|---|---|---|---|---|---|
+| Mulch a bed | 2 h | 1/2 | mulch | rain | Bare soil, then mulch spread patch by patch |
+| Plant flowers/shrubs | 2 h | 1/2 | plants, soil | freezing, heat | Holes dug, then plants placed one at a time |
+| Build a flower bed | 4 h | 1/2 | edging stones/timbers, soil, plants | rain, freezing | Outline, dig, edging piece by piece, soil, plants |
+| Overseed lawn | 2 h | 1/1 | seed, fertilizer, straw | rain, heat | Bare patches turn green over time |
+| Lay sod | 4 h | 2/3 | sod rolls | freezing, heat | Dirt, then sod laid strip by strip |
+| Stepping-stone path | 3 h | 1/2 | pavers/flagstone, sand | rain, freezing | Stones appear in sequence along a line |
+| Fence section repair | 2 h | 1/2 | boards, nails | rain | Broken boards replaced one by one |
+
+### Tier 3: Two or more people (can be done short-handed, slower)
+| Job | Time | Crew (min/best) | Materials | Equipment | Weather |
+|---|---|---|---|---|---|
+| Paver patio | 12 h | 2/3 | pavers, gravel, sand | plate compactor (rent) | rain, freezing |
+| Small retaining wall | 10 h | 2/3 | blocks, gravel, rebar | wheelbarrow, level | rain, freezing |
+| Railroad-tie wall / raised bed | 8 h | 2/3 | ties, rebar | drill, saw | rain |
+| Wood fence (per run) | 12 h | 2/3 | posts, boards, concrete | post-hole auger | rain, freezing |
+| Sprinkler install | 10 h | 2/3 | pipe, heads | trencher (rent) | rain, freezing |
+| Deck repair / small deck | 16 h | 2/3 | lumber, hardware | saws | rain |
+| Tree trimming / small removal | 6 h | 2/3 | none | chainsaw (rent), chipper | wind, rain |
+| Gravel driveway repair | 6 h | 2/3 | gravel | truck, rake | rain |
+| Plow driveways/lots | per stop | 1/1 | fuel | plow truck | needs snow |
+
+### Tier 4: Equipment jobs (rented first, owned later)
+- Yard grading/leveling (skid steer or mini-bulldozer)
+- Pond or drainage ditch (mini-excavator)
+- Stump grinding (stump grinder)
+- Large tree removal (chainsaw, chipper, bucket truck or extra crew)
+- Gravel driveway install (loader, dump truck)
+- Concrete pad or sidewalk (forms, rebar, mixer or delivery)
+
+### Tier 5: Contracts and insurance territory
+- Baseball field (grading, infield mix, sod, bases, fencing, backstop)
+- Parking lot / paving prep
+- Foundation or slab for a small building
+- Commercial landscaping contracts (recurring, for example "mow the park weekly")
+- Farm work (fence lines, field clearing, drainage, barn pad)
+- **Snow: street plowing and salting** for the town (salt/plow truck contract)
+
+### Job catalog open questions
+- Real base times and prices for each job (needs a balancing pass once the game exists).
+- Which jobs need insurance, and which need contracts.
+- More jobs to add. (Owner has many ideas still to share.)
+
+---
+
+*Last updated: recurring customers, seasons and snow, and a draft job catalog.*

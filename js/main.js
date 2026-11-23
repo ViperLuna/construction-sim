@@ -208,10 +208,14 @@ function createGame() {
       main.append(money);
       const dueDay = dayOf(offer.dueAt);
       const due = `${dueDay === clock.day ? 'today' : partsAt(offer.dueAt).day} ${partsAt(offer.dueAt).time}`;
-      main.append(el('div', slot.ok ? 'muted' : 'muted warn', slot.ok ? `Due ${due}` : `Can't finish before it's due (${due})`));
+      if (slot.ok) {
+        main.append(el('div', 'muted', `Due ${due}`));
+      } else {
+        main.append(el('div', 'muted warn', `Can't take this job: it doesn't fall within the allotted completion time (due ${due})`));
+      }
       const btn = el('button', slot.ok ? 'btn primary' : 'btn', slot.ok ? 'Accept' : 'Too late');
-      btn.type = 'button';
       btn.disabled = !slot.ok;
+      btn.type = 'button';
       btn.addEventListener('click', () => {
         const job = dispatcher.accept(offer.id);
         if (job) setStatus(`Scheduled ${job.lot.address}: ${fmtRange(job.start, job.end)}`);
@@ -234,7 +238,7 @@ function createGame() {
     const statusText = (job) => {
       if (job.status === 'working') return `${job.type.verb} ${Math.round(job.lot.work.progress * 100)}%`;
       if (job.status === 'driving') return 'Driving';
-      if (job.status === 'done') return `Paid ${formatMoneyFull(job.pay)}`;
+      if (job.status === 'done') return `Paid ${formatMoneyFull(job.paid)}${job.daysLate ? ' (late)' : ''}`;
       return 'Scheduled';
     };
     const addRow = (job, done) => {
@@ -269,8 +273,8 @@ function createGame() {
   // ----- game events -----
   dispatcher.onEvent = (type, payload) => {
     if (type === 'done') {
-      floaters.push({ x: payload.lot.x + payload.lot.w / 2, y: payload.lot.y + 0.5, text: `+${formatMoneyFull(payload.pay)}`, age: 0, life: 2.2 });
-      setStatus(`Finished ${payload.lot.address}: ${formatMoneyFull(payload.pay)} earned.`);
+      floaters.push({ x: payload.lot.x + payload.lot.w / 2, y: payload.lot.y + 0.5, text: `+${formatMoneyFull(payload.paid)}`, age: 0, life: 2.2 });
+      setStatus(`Finished ${payload.lot.address}: ${formatMoneyFull(payload.paid)} earned${payload.daysLate ? ` (${payload.daysLate} day${payload.daysLate > 1 ? 's' : ''} late)` : ''}.`);
     } else if (type === 'started') {
       setStatus(`${payload.type.verb} ${payload.lot.address}…`);
     } else if (type === 'newDay') {

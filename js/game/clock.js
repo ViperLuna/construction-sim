@@ -25,6 +25,12 @@ export function nextBusinessDay(day) {
   while (!isBusinessDay(day)) day++;
   return day;
 }
+// How many business days come after `from` up to and including `to`.
+export function businessDaysBetween(from, to) {
+  let n = 0;
+  for (let d = from + 1; d <= to; d++) if (isBusinessDay(d)) n++;
+  return n;
+}
 // The day that is `n` business days after `day` (n = 0 is the same day).
 export function addBusinessDays(day, n) {
   let d = nextBusinessDay(day);

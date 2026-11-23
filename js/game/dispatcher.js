@@ -6,7 +6,7 @@ import { JOB_TYPES } from '../data/jobs.js';
 import { findPath } from '../world/pathfind.js';
 import { mulberry32 } from '../util/rng.js';
 import { FUEL_GAL_PER_TILE, FUEL_PRICE } from './economy.js';
-import { dayOf, shiftStart, shiftEnd, nextBusinessDay, addBusinessDays, isBusinessDay, timeOfDay, SHIFT_END_MIN } from './clock.js';
+import { dayOf, shiftStart, shiftEnd, nextBusinessDay, addBusinessDays, businessDaysBetween, isBusinessDay, timeOfDay, SHIFT_END_MIN } from './clock.js';
 
 const BUFFER = 1.2; // extra time added to every scheduled block
 const MOST_FITS = 0.6; // start today if at least this much of the job fits
@@ -14,13 +14,21 @@ const OFFERS_PER_DAY = 6;
 
 // How many business days a customer gives you (today counts as day 1), and the
 // bonus for short windows. Rush jobs pay more but leave less room to schedule.
+// The long windows are planned work: you can line jobs up well in advance.
 const WINDOWS = [
   { days: 1, weight: 1, bonus: 0.25 },
   { days: 2, weight: 3, bonus: 0.1 },
   { days: 3, weight: 3, bonus: 0 },
   { days: 4, weight: 2, bonus: 0 },
   { days: 5, weight: 1, bonus: 0 },
+  { days: 10, weight: 2, bonus: 0 },
+  { days: 15, weight: 1, bonus: 0 },
 ];
+
+// If a job still ends up finishing after its due date (an overrun), it costs
+// this much of the pay per business day late, up to the cap.
+const LATE_PENALTY_PER_DAY = 0.1;
+const LATE_PENALTY_CAP = 0.5;
 
 export class Dispatcher {
   constructor({ world, truck, clock, economy, crew }) {
@@ -118,13 +126,18 @@ export class Dispatcher {
     return cand;
   }
 
-  // Where this job would go, and whether it can finish before it's due.
-  // This is what keeps the queue honest: you can't pile up more work than the
-  // crew can actually get done in time.
+  // Where this job would go, and whether it fits inside its allotted completion
+  // time. There's no cap on how much work you can line up (that's job security),
+  // but you can't take a job that can't be finished before it's due.
   checkSlot(offer) {
     const start = this.findSlot(offer.est.blockMin);
     const end = start + offer.est.blockMin;
-    return { ok: end <= offer.dueAt, start, end };
+    const late = end > offer.dueAt;
+    return { ok: !late, late, start, end };
+  }
+
+  latePenalty(daysLate) {
+    return Math.min(LATE_PENALTY_CAP, daysLate * LATE_PENALTY_PER_DAY);
   }
 
   accept(offerId) {
@@ -132,7 +145,7 @@ export class Dispatcher {
     if (i < 0) return null;
     const offer = this.offers[i];
     const slot = this.checkSlot(offer);
-    if (!slot.ok) return null;
+    if (!slot.ok) return null; // doesn't fall within the allotted completion time
     this.offers.splice(i, 1);
     const start = slot.start;
     const job = {
@@ -227,9 +240,12 @@ export class Dispatcher {
   }
 
   finishJob(job) {
-    this.economy.money += job.pay;
     job.status = 'done';
     job.finishedAt = this.clock.minutes;
+    job.daysLate =
+      job.finishedAt > job.dueAt ? Math.max(1, businessDaysBetween(dayOf(job.dueAt), dayOf(job.finishedAt))) : 0;
+    job.paid = Math.round(job.pay * (1 - this.latePenalty(job.daysLate)));
+    this.economy.money += job.paid;
     job.lot.work.progress = 1;
     job.lot.work.doneAt = this.clock.minutes;
     this.schedule = this.schedule.filter((j) => j !== job);

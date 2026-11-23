@@ -227,51 +227,84 @@ test('truck turns smoothly: no spinning, the same at any speed or frame rate', (
   }
 });
 
-test('offers have due dates, and short windows pay more', () => {
+test('offers have due dates: short windows pay more, long ones let you plan ahead', () => {
   let rush = 0;
   let normal = 0;
-  for (let day = 0; day < 15; day++) {
+  let longTerm = 0;
+  for (let day = 0; day < 20; day++) {
     const d = setup(day * 1440).dispatcher;
     for (const o of d.offers) {
-      assert.ok(o.dueAt > day * 1440 && o.dueAt <= day * 1440 + 8 * 1440, 'due within about a week');
+      assert.ok(o.dueAt > day * 1440, 'due in the future');
+      assert.ok(o.dueAt <= day * 1440 + 25 * 1440, 'due within about three weeks');
       if (o.rush) {
         assert.ok(o.pay > o.basePay, 'rush pays a bonus');
         rush++;
       } else normal++;
+      if (o.dueAt - day * 1440 > 8 * 1440) longTerm++;
     }
   }
   assert.ok(rush > 0 && normal > rush, 'some rush jobs, mostly normal ones');
+  assert.ok(longTerm > 0, 'some long-window planned work');
 });
 
-test("can't accept a job that won't finish before it's due", () => {
+test("can't take a job that doesn't fit its allotted completion time", () => {
   const ctx = setup(600 - 20); // 4:40 PM
   const offer = ctx.dispatcher.offers[0];
   offer.dueAt = 600; // due at 5 PM today, with no hope of finishing
   assert.equal(ctx.dispatcher.checkSlot(offer).ok, false);
   assert.equal(ctx.dispatcher.accept(offer.id), null);
-  assert.equal(ctx.dispatcher.offers.includes(offer), true, 'the offer stays on the board');
+  assert.ok(ctx.dispatcher.offers.includes(offer), 'the offer stays on the board');
   assert.equal(ctx.dispatcher.schedule.length, 0, 'nothing was queued');
   // the same job with a later due date is fine
   offer.dueAt = 3 * 1440;
   assert.ok(ctx.dispatcher.accept(offer.id));
 });
 
-test('the queue limits itself: accepting everything every day cannot pile up impossible work', () => {
+test('an overrun that finishes after the due date pays less', () => {
+  const ctx = setup();
+  const offer = ctx.dispatcher.offers[0];
+  offer.dueAt = Infinity;
+  const job = ctx.dispatcher.accept(offer.id);
+  job.dueAt = job.start + 5; // pretend the job ran long and blew past its due time
+  run(ctx, () => ctx.dispatcher.history.length === 1);
+  assert.ok(job.daysLate >= 1);
+  assert.ok(job.paid < job.pay, `paid ${job.paid} of ${job.pay}`);
+  assert.equal(ctx.economy.money, 500 + job.paid);
+});
+
+test('on-time work is paid in full, and the late penalty is capped', () => {
+  const ctx = setup();
+  const offer = ctx.dispatcher.offers[0];
+  offer.dueAt = Infinity;
+  const job = ctx.dispatcher.accept(offer.id);
+  run(ctx, () => ctx.dispatcher.history.length === 1);
+  assert.equal(job.daysLate, 0);
+  assert.equal(job.paid, job.pay);
+  assert.equal(ctx.dispatcher.latePenalty(1), 0.1);
+  assert.equal(ctx.dispatcher.latePenalty(30), 0.5, 'never worse than half pay');
+});
+
+test('queues can run long: no cap on jobs, only on whether each one fits its window', () => {
   const ctx = setup();
   const { dispatcher, clock } = ctx;
   let maxQueue = 0;
   let accepted = 0;
-  for (let day = 0; day < 12; day++) {
-    for (const offer of [...dispatcher.offers]) if (dispatcher.accept(offer.id)) accepted++;
+  let refused = 0;
+  for (let day = 0; day < 20; day++) {
+    for (const offer of [...dispatcher.offers]) {
+      if (dispatcher.accept(offer.id)) accepted++;
+      else refused++;
+    }
     maxQueue = Math.max(maxQueue, dispatcher.schedule.length);
-    // every scheduled job is booked to finish before it is due
+    // everything queued is booked to finish inside its window
     for (const job of dispatcher.schedule) assert.ok(job.end <= job.dueAt, `${job.lot.address} booked past its due time`);
     run(ctx, () => clock.shiftOver);
     dispatcher.endDay();
   }
-  // Six offers a day, but the crew can't do all of them; the rest are turned away.
-  assert.ok(accepted < 12 * 6, `accepted ${accepted} of ${12 * 6}`);
-  assert.ok(maxQueue <= 12, `queue peaked at ${maxQueue}`);
-  // and everything that was done was done on time
-  for (const job of dispatcher.history) assert.ok(job.finishedAt <= job.dueAt, `${job.lot.address} finished late`);
+  assert.ok(maxQueue > 7, `the queue was allowed to grow long (peaked at ${maxQueue})`);
+  assert.ok(accepted > 0 && refused > 0, `accepted ${accepted}, refused ${refused}`);
+  for (const job of dispatcher.history) {
+    assert.ok(job.finishedAt <= job.dueAt, `${job.lot.address} finished late`);
+    assert.equal(job.paid, job.pay);
+  }
 });

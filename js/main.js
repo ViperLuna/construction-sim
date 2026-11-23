@@ -2,11 +2,11 @@ import { TITLE, VERSION, CONFIG } from './config.js';
 import { loadSettings, saveSettings, clampSecondsPerHour } from './settings.js';
 import { unlock } from './audio.js';
 import { buildWorld, lotAt } from './world/map.js';
-import { Truck } from './game/truck.js';
 import { Clock, partsAt, dayOf } from './game/clock.js';
 import { createEconomy, formatMoneyShort, formatMoneyFull } from './game/economy.js';
 import { Dispatcher } from './game/dispatcher.js';
 import { STAT_KEYS, STAT_SHORT, STAT_LABELS, MAX_STAT, RARITIES, xpToNext, cashNeededFor, acceptChance } from './game/crew.js';
+import { VEHICLE_TYPES } from './data/vehicles.js';
 import { createCamera, render, screenToWorld } from './game/render.js';
 import { canSave, serialize, restore, parseSaveText } from './game/save.js';
 import { SaveStore } from './game/storage.js';
@@ -184,11 +184,10 @@ function el(tag, className, text) {
 function createGame(savedData) {
   const world = buildWorld();
   const clock = new Clock();
-  const truck = new Truck(world, world.property.homeNode);
   const economy = createEconomy();
-  const dispatcher = new Dispatcher({ world, truck, clock, economy });
+  const dispatcher = new Dispatcher({ world, clock, economy });
   const roster = dispatcher.roster; // the owner, plus anyone hired
-  const ctxForSave = { world, clock, economy, dispatcher, truck };
+  const ctxForSave = { world, clock, economy, dispatcher };
   if (savedData) {
     try {
       restore(ctxForSave, savedData);
@@ -215,7 +214,9 @@ function createGame(savedData) {
   let running = false;
   let lastFrame = 0;
   let lastPanelRefresh = 0;
-  let crewView = 'roster'; // 'roster' | 'hiring'
+  let crewView = 'roster'; // 'roster' | 'teams' | 'hiring' | 'vehicles'
+  let teamMessage = '';
+  let followCrewId = null; // which crew the camera follows (null: whoever is out)
   let confirmFireId = null;
   const offerWage = new Map(); // applicant id -> the wage typed in so far
   let hireMessage = '';
@@ -268,16 +269,22 @@ function createGame(savedData) {
   }
 
   // ----- readouts -----
-  function crewLabel() {
-    const job = dispatcher.active;
-    if (clock.shiftOver) return 'Clocked out for the day';
-    if (dispatcher.state === 'working') return `${job.type.verb} ${job.lot.address} · ${Math.round(job.lot.work.progress * 100)}%`;
-    if (dispatcher.state === 'travelling') {
-      return dispatcher.purpose === 'toJob' ? `Driving to ${job.lot.address}` : 'Heading home';
-    }
-    const next = dispatcher.schedule[0];
+  function crewStatus(crew) {
+    const job = crew.active;
+    if (crew.state === 'working') return `${job.type.verb} ${job.lot.address} · ${Math.round(job.lot.work.progress * 100)}%`;
+    if (crew.state === 'travelling') return crew.purpose === 'toJob' ? `Driving to ${job.lot.address}` : 'Heading home';
+    if (!dispatcher.vehicleOf(crew)) return crew.queue.length ? 'No vehicle: stuck at the property' : 'No vehicle';
+    const next = crew.queue[0];
     if (next) return `Waiting for ${partsAt(next.start).day} ${partsAt(next.start).time}`;
     return 'Waiting at home';
+  }
+
+  function crewLabel() {
+    if (clock.shiftOver) return 'Clocked out for the day';
+    const crews = dispatcher.crews;
+    if (crews.length === 1) return crewStatus(crews[0]);
+    const out = crews.filter((c) => c.state !== 'idle').length;
+    return out ? `${out} of ${crews.length} crews out` : `${crews.length} crews at the property`;
   }
 
   function refreshHud() {
@@ -318,8 +325,8 @@ function createGame(savedData) {
       return;
     }
     for (const offer of dispatcher.offers) {
-      const e = offer.est;
       const slot = dispatcher.checkSlot(offer);
+      const e = slot.est;
       const card = el('article', slot.ok ? 'card' : 'card blocked');
       const main = el('div', 'card-main');
       const title = el('strong', '', `${offer.type.name} · ${offer.lot.address}`);
@@ -333,7 +340,8 @@ function createGame(savedData) {
       const dueDay = dayOf(offer.dueAt);
       const due = `${dueDay === clock.day ? 'today' : partsAt(offer.dueAt).day} ${partsAt(offer.dueAt).time}`;
       if (slot.ok) {
-        main.append(el('div', 'muted', `Due ${due}`));
+        const who = dispatcher.crews.length > 1 && slot.crew ? ` · ${slot.crew.name}` : '';
+        main.append(el('div', 'muted', `Due ${due}${who}`));
       } else {
         main.append(el('div', 'muted warn', `Can't take this job: it doesn't fall within the allotted completion time (due ${due})`));
       }
@@ -352,7 +360,8 @@ function createGame(savedData) {
   }
 
   function renderSchedule() {
-    panelTitle.textContent = 'Schedule · Crew (1)';
+    const many = dispatcher.crews.length > 1;
+    panelTitle.textContent = many ? 'Schedule · all crews' : `Schedule · ${dispatcher.crews[0].name}`;
     panelBody.replaceChildren();
     const rows = [...dispatcher.schedule];
     if (!rows.length && !dispatcher.history.length) {
@@ -369,7 +378,9 @@ function createGame(savedData) {
       const card = el('article', done ? 'card done' : 'card');
       const main = el('div', 'card-main');
       main.append(el('strong', '', `${job.type.name} · ${job.lot.address}`));
-      main.append(el('div', 'muted', done ? `Finished ${partsAt(job.finishedAt).day} ${partsAt(job.finishedAt).time}` : `${fmtRange(job.start, job.end)} · due ${partsAt(job.dueAt).day}`));
+      const crew = dispatcher.crew(job.crewId);
+      const who = many && crew ? `${crew.name} · ` : '';
+      main.append(el('div', 'muted', done ? `${who}Finished ${partsAt(job.finishedAt).day} ${partsAt(job.finishedAt).time}` : `${who}${fmtRange(job.start, job.end)} · due ${partsAt(job.dueAt).day}`));
       card.append(main, el('div', done ? 'row-status good' : 'row-status', statusText(job)));
       panelBody.append(card);
     };
@@ -414,7 +425,8 @@ function createGame(savedData) {
       const head = el('div', 'person-head');
       head.append(el('strong', '', m.isOwner ? 'You (Owner)' : m.name), el('span', 'chip level', `Lv ${m.level}`));
       main.append(head);
-      const seat = roster.isSeated(m) ? 'Rides in the truck' : 'No seat in the truck yet (waits at the property)';
+      const crew = dispatcher.crewOf(m.id);
+      const seat = !crew ? 'No crew' : `${crew.name} · ${dispatcher.isSeated(m) ? 'rides in the truck' : dispatcher.vehicleOf(crew) ? 'no seat left in the truck' : 'no vehicle yet, waits at the property'}`;
       main.append(el('div', 'muted', `${m.isOwner ? 'No pay' : `${formatMoneyFull(m.wage)}/hour`} · ${seat}`));
       main.append(el('div', 'muted', `XP ${Math.floor(m.xp)}/${xpToNext(m.level)}${m.points ? ` · ${m.points} point${m.points > 1 ? 's' : ''} to spend` : ''}`));
       main.append(statRow(m, true));
@@ -426,9 +438,10 @@ function createGame(savedData) {
         fire.addEventListener('click', () => {
           if (!armed) confirmFireId = m.id;
           else {
-            dispatcher.fire(m.id);
+            const result = dispatcher.fire(m.id);
             confirmFireId = null;
-            setStatus(`${m.name} is gone.`);
+            teamMessage = result.ok ? '' : ({ busy: `${m.name}'s crew is out on a job.`, jobs: `${m.name} is the only one on a crew with work booked.` }[result.reason] || 'Cannot do that.');
+            if (result.ok) setStatus(`${m.name} is gone.`);
           }
           renderPanel();
           refreshHud();
@@ -494,19 +507,181 @@ function createGame(savedData) {
     }
   }
 
+  const REASONS = {
+    busy: 'A crew involved is out on a job. Try when everyone is home.',
+    seats: 'Not enough seats.',
+    jobs: 'That would leave a crew with work booked and nobody to do it.',
+    same: 'They are already there.',
+    missing: 'That is gone.',
+    parking: 'No room to park another vehicle.',
+    cash: 'Not enough cash for that.',
+    owned: 'You bought that one, so there is nothing to return.',
+  };
+
+  function renderTeams() {
+    panelBody.append(
+      el('p', 'muted', 'Each crew works its own jobs with its own truck. A crew with no truck can only have two people, and it can not leave the property.'),
+    );
+    if (teamMessage) panelBody.append(el('p', 'warn', teamMessage));
+    for (const crew of dispatcher.crews) {
+      const card = el('article', 'card team');
+      const main = el('div', 'card-main');
+      const head = el('div', 'person-head');
+      const rename = el('input', 'name-input');
+      rename.value = crew.name;
+      rename.maxLength = 24;
+      rename.setAttribute('aria-label', 'Crew name');
+      rename.addEventListener('change', () => {
+        if (!dispatcher.renameCrew(crew.id, rename.value)) rename.value = crew.name;
+        else renderPanel();
+      });
+      head.append(rename);
+      main.append(head);
+      main.append(el('div', 'muted', crewStatus(crew)));
+
+      // vehicle picker
+      const vehicleRow = el('div', 'row');
+      vehicleRow.append(el('span', 'muted', 'Vehicle'));
+      const vsel = el('select', 'mini-select');
+      vsel.setAttribute('aria-label', `Vehicle for ${crew.name}`);
+      vsel.add(new Option('None', ''));
+      for (const v of dispatcher.vehicles) {
+        const holder = dispatcher.crewOfVehicle(v.id);
+        vsel.add(new Option(`${v.name} (${v.seats} seats)${holder && holder !== crew ? ` · ${holder.name}` : ''}`, String(v.id)));
+      }
+      vsel.value = crew.vehicleId == null ? '' : String(crew.vehicleId);
+      vsel.addEventListener('change', () => {
+        const result = dispatcher.assignVehicle(crew.id, vsel.value === '' ? null : Number(vsel.value));
+        teamMessage = result.ok ? '' : REASONS[result.reason] || 'Cannot do that.';
+        renderPanel();
+        refreshHud();
+      });
+      vehicleRow.append(vsel);
+      main.append(vehicleRow);
+
+      // people
+      const cap = dispatcher.capacityOf(crew);
+      main.append(el('div', 'muted', `People ${crew.memberIds.length}/${cap}`));
+      for (const m of dispatcher.membersOf(crew)) {
+        const row = el('div', 'row');
+        row.append(el('span', '', m.isOwner ? 'You (Owner)' : m.name));
+        if (dispatcher.crews.length > 1) {
+          const sel = el('select', 'mini-select');
+          sel.setAttribute('aria-label', `Move ${m.name}`);
+          sel.add(new Option('Move to…', ''));
+          for (const other of dispatcher.crews) if (other !== crew) sel.add(new Option(other.name, String(other.id)));
+          sel.addEventListener('change', () => {
+            const result = dispatcher.moveMember(m.id, Number(sel.value));
+            teamMessage = result.ok ? '' : REASONS[result.reason] || 'Cannot do that.';
+            renderPanel();
+            refreshHud();
+          });
+          row.append(sel);
+        }
+        main.append(row);
+      }
+      card.append(main);
+      if (!crew.memberIds.length && !crew.queue.length && dispatcher.crews.length > 1) {
+        const del = el('button', 'btn small', 'Delete');
+        del.type = 'button';
+        del.addEventListener('click', () => { dispatcher.deleteCrew(crew.id); renderPanel(); });
+        card.append(del);
+      }
+      panelBody.append(card);
+    }
+    const add = el('button', 'btn', '+ New crew');
+    add.type = 'button';
+    add.addEventListener('click', () => {
+      if (!dispatcher.createCrew()) teamMessage = 'You have enough crews for the people you have.';
+      renderPanel();
+    });
+    panelBody.append(add);
+  }
+
+  function renderVehicles() {
+    panelBody.append(
+      el('p', 'muted', `Rentals cost a flat fee every day you keep them, weekends too. Orders arrive on the next business day. Parking for ${world.property.parkNodes.length} vehicles.`),
+    );
+    if (teamMessage) panelBody.append(el('p', 'warn', teamMessage));
+
+    for (const v of dispatcher.vehicles) {
+      const crew = dispatcher.crewOfVehicle(v.id);
+      const card = el('article', 'card person');
+      const main = el('div', 'card-main');
+      const head = el('div', 'person-head');
+      head.append(el('strong', '', v.name), el('span', 'chip level', `${v.seats} seats`));
+      main.append(head);
+      main.append(el('div', 'muted', `${v.owned ? 'Yours' : `Rented · ${formatMoneyFull(v.rentPerDay)}/day`} · ${crew ? crew.name : 'not assigned'}`));
+      card.append(main);
+      if (!v.owned) {
+        const back = el('button', 'btn', 'Return');
+        back.type = 'button';
+        back.addEventListener('click', () => {
+          const result = dispatcher.returnVehicle(v.id);
+          teamMessage = result.ok ? '' : REASONS[result.reason] || 'Cannot do that.';
+          renderPanel();
+          refreshHud();
+        });
+        card.append(back);
+      }
+      panelBody.append(card);
+    }
+
+    if (dispatcher.deliveries.length) {
+      panelBody.append(el('div', 'muted', 'On the way'));
+      for (const d of dispatcher.deliveries) {
+        const t = VEHICLE_TYPES[d.typeId];
+        const when = partsAt(d.arriveAt);
+        const card = el('article', 'card');
+        const main = el('div', 'card-main');
+        main.append(el('strong', '', t.name), el('div', 'muted', `${d.mode === 'buy' ? 'Bought' : 'Rented'} · arrives ${when.day} ${when.time}`));
+        card.append(main);
+        panelBody.append(card);
+      }
+    }
+
+    panelBody.append(el('div', 'muted', 'Get another vehicle'));
+    for (const t of Object.values(VEHICLE_TYPES)) {
+      const card = el('article', 'card');
+      const main = el('div', 'card-main');
+      main.append(el('strong', '', t.name), el('div', 'muted', `${t.seats} seats · rent ${formatMoneyFull(t.rentPerDay)}/day · buy ${formatMoneyFull(t.price)}`));
+      const buttons = el('div', 'btn-col');
+      for (const [mode, label] of [['rent', 'Rent'], ['buy', 'Buy']]) {
+        const b = el('button', 'btn small', label);
+        b.type = 'button';
+        b.disabled = mode === 'buy' && economy.money < t.price;
+        b.addEventListener('click', () => {
+          const result = dispatcher.orderVehicle(t.id, mode);
+          if (result.ok) {
+            const when = partsAt(result.delivery.arriveAt);
+            teamMessage = '';
+            setStatus(`${mode === 'buy' ? 'Bought' : 'Rented'} a ${t.name}. It arrives ${when.day} ${when.time}.`);
+          } else teamMessage = REASONS[result.reason] || 'Cannot do that.';
+          renderPanel();
+          refreshHud();
+        });
+        buttons.append(b);
+      }
+      card.append(main, buttons);
+      panelBody.append(card);
+    }
+  }
+
   function renderCrew() {
     panelTitle.textContent = 'Crew';
     panelBody.replaceChildren();
     const seg = el('div', 'seg');
-    for (const [id, label] of [['roster', `Roster (${roster.members.length})`], ['hiring', 'Hiring']]) {
+    for (const [id, label] of [['roster', `People (${roster.members.length})`], ['teams', 'Teams'], ['hiring', 'Hiring'], ['vehicles', 'Trucks']]) {
       const b = el('button', 'seg-btn', label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(crewView === id));
-      b.addEventListener('click', () => { crewView = id; confirmFireId = null; renderPanel(); });
+      b.addEventListener('click', () => { crewView = id; confirmFireId = null; teamMessage = ''; renderPanel(); });
       seg.append(b);
     }
     panelBody.append(seg);
     if (crewView === 'roster') renderRoster();
+    else if (crewView === 'teams') renderTeams();
+    else if (crewView === 'vehicles') renderVehicles();
     else renderHiring();
   }
 
@@ -532,12 +707,14 @@ function createGame(savedData) {
       setStatus(`Finished ${payload.lot.address}: ${formatMoneyFull(payload.paid)} earned${payload.daysLate ? ` (${payload.daysLate} day${payload.daysLate > 1 ? 's' : ''} late)` : ''}.`);
     } else if (type === 'started') {
       setStatus(`${payload.type.verb} ${payload.lot.address}…`);
+    } else if (type === 'delivered') {
+      setStatus(`Your ${payload.name} has arrived.`);
     } else if (type === 'newDay') {
       hireMessage = '';
     } else if (type === 'levelUp') {
       setStatus(`${payload.isOwner ? 'You' : payload.name} reached level ${payload.level}. Open Crew to spend points.`);
     }
-    if (['scheduled', 'crew', 'done', 'newDay', 'offers'].includes(type)) dirty = true;
+    if (['scheduled', 'crew', 'done', 'newDay', 'offers', 'fleet', 'delivered'].includes(type)) dirty = true;
     if (type !== 'scheduled') renderPanel();
   };
 
@@ -549,11 +726,10 @@ function createGame(savedData) {
   endDayBtn.addEventListener('click', () => {
     const payroll = dispatcher.endDay();
     follow = true;
-    setStatus(
-      payroll.total
-        ? `Payday: ${payroll.lines.length} employee${payroll.lines.length > 1 ? 's' : ''}, ${formatMoneyFull(payroll.total)}. New day, fresh offers.`
-        : 'New day. Fresh job offers are in.',
-    );
+    const bits = [];
+    if (payroll.total) bits.push(`payroll ${formatMoneyFull(payroll.total)}`);
+    if (payroll.rent && payroll.rent.total) bits.push(`rentals ${formatMoneyFull(payroll.rent.total)}`);
+    setStatus(bits.length ? `Paid ${bits.join(' and ')}. New day, fresh offers.` : 'New day. Fresh job offers are in.');
     dirty = true;
     refreshHud();
     renderPanel();
@@ -658,6 +834,14 @@ function createGame(savedData) {
     if (!gameScreen.hidden) resize();
   });
 
+  // The truck to follow: the chosen crew's, else the first crew that's out.
+  function followTarget() {
+    const crews = followCrewId != null ? [dispatcher.crew(followCrewId)].filter(Boolean) : dispatcher.crews;
+    const out = crews.find((c) => c.state !== 'idle');
+    const t = out ? dispatcher.truckOf(out) : null;
+    return t || null;
+  }
+
   // ----- main loop -----
   function frame(now) {
     if (!running) return;
@@ -676,12 +860,12 @@ function createGame(savedData) {
     // Autosave once the crew is home and nothing is in motion.
     if (dirty && now - lastSaveAt > 700 && saveNow()) lastSaveAt = now;
 
-    // The camera stays on the truck while it's out working, if Follow is on.
-    const out = dispatcher.state !== 'idle' || truck.state === 'driving';
-    if (follow && out) {
+    // The camera stays on a truck that's out working, if Follow is on.
+    const target = follow ? followTarget() : null;
+    if (target) {
       if (view.cam.zoom < 16) view.cam.zoom += (16 - view.cam.zoom) * 0.06;
-      view.cam.x += (truck.x - view.cam.x) * 0.15;
-      view.cam.y += (truck.y - view.cam.y) * 0.15;
+      view.cam.x += (target.x - view.cam.x) * 0.15;
+      view.cam.y += (target.y - view.cam.y) * 0.15;
     }
 
     for (const f of floaters) f.age += dt;
@@ -692,14 +876,14 @@ function createGame(savedData) {
       lastPanelRefresh = now;
       renderSchedule();
     }
-    const activeLot = dispatcher.state === 'working' ? dispatcher.active.lot : null;
+    const activeLots = new Set(dispatcher.crews.filter((c) => c.state === 'working').map((c) => c.active.lot));
     render(ctx, {
       world,
       cam: view.cam,
-      truck,
+      trucks: dispatcher.trucks,
       selectedLot,
       workAlpha: (lot) => dispatcher.workAlpha(lot),
-      activeLot,
+      activeLots,
       floaters,
       ...view,
     });
@@ -723,7 +907,7 @@ function createGame(savedData) {
   setStatus(savedData ? 'Welcome back. Your game was loaded.' : 'Open Jobs to pick some work.');
 
   // Test hook so automated checks can drive the game without pixel hunting.
-  window.__game = { world, truck, clock, economy, dispatcher, view, setTab };
+  window.__game = { world, clock, economy, dispatcher, view, setTab };
 
   return { resize, start, saveNow, canSaveNow: () => canSave(ctxForSave) };
 }

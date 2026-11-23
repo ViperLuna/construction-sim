@@ -190,3 +190,13 @@ p.warn { margin: 6px 0; }
 .save-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .save-actions .btn { flex: 1; min-width: 5.5em; }
 .save-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* teams and vehicles */
+.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
+.mini-select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px; min-height: 36px; padding: 0 8px; max-width: 60%; }
+.name-input { font: inherit; font-weight: 700; color: var(--text); background: transparent; border: 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.3); padding: 2px 0; width: 100%; }
+.team { align-items: flex-start; }
+.team .card-main { width: 100%; }
+.btn-col { display: flex; flex-direction: column; gap: 6px; }
+.seg { flex-wrap: wrap; }
+.seg-btn { min-width: 22%; padding: 0 4px; }

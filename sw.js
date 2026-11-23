@@ -16,6 +16,7 @@ const ASSETS = [
   './js/audio.js',
   './js/data/jobs.js',
   './js/data/names.js',
+  './js/data/vehicles.js',
   './js/util/rng.js',
   './js/world/map.js',
   './js/world/pathfind.js',

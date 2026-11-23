@@ -380,9 +380,11 @@ function drawProperty(ctx, world, zoom) {
   rect(ctx, p.x, p.y, p.w, p.h, COLORS.grassDark);
   rect(ctx, p.x, p.y, p.developedMaxX - p.x, p.h, COLORS.dirt);
 
-  // Driveway.
+  // Driveway and the parking pad.
   const d = world.driveway;
   rect(ctx, d.x1 - 0.8, d.y1 + 1.4, 1.6, d.y2 - d.y1 - 1.4, COLORS.gravel);
+  const lastSpot = world.nodes[p.parkNodes[p.parkNodes.length - 1]];
+  rect(ctx, d.x1 - 0.8, d.y2 - 0.95, lastSpot.x - d.x1 + 1.8, 1.9, COLORS.gravel);
 
   // Garage, crew building, fuel pump.
   rect(ctx, p.x + 1.2 + 0.1, p.y + 4.1, 3.6, 3, 'rgba(0,0,0,0.15)');
@@ -428,6 +430,7 @@ function drawStreetLabels(ctx, world, zoom) {
 }
 
 function drawTruck(ctx, truck, zoom) {
+  const cab = truck.tint || '#3e6fa8';
   // Keep the truck readable when the whole town is on screen.
   const scale = Math.min(2.2, Math.max(1, 16 / (1.4 * zoom)));
   ctx.save();
@@ -437,7 +440,7 @@ function drawTruck(ctx, truck, zoom) {
   rect(ctx, -0.62, -0.3, 1.4, 0.7, 'rgba(0,0,0,0.18)');
   rect(ctx, -0.7, -0.33, 1.4, 0.66, '#f4f1ea'); // body
   rect(ctx, -0.7, -0.33, 0.62, 0.66, '#d9d3c4'); // bed
-  rect(ctx, 0.0, -0.3, 0.42, 0.6, '#3e6fa8'); // cab
+  rect(ctx, 0.0, -0.3, 0.42, 0.6, cab); // cab
   rect(ctx, 0.3, -0.24, 0.12, 0.48, '#a9cce8'); // windshield
   rect(ctx, 0.68, -0.28, 0.06, 0.14, '#ffe9a0'); // headlights
   rect(ctx, 0.68, 0.14, 0.06, 0.14, '#ffe9a0');
@@ -460,7 +463,7 @@ function drawFloaters(ctx, floaters, zoom) {
 }
 
 export function render(ctx, state) {
-  const { world, cam, truck, selectedLot, cssW, cssH, dpr, workAlpha, activeLot, floaters } = state;
+  const { world, cam, trucks, selectedLot, cssW, cssH, dpr, workAlpha, activeLots, floaters } = state;
 
   // Clear in screen space, then draw in world space.
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -475,10 +478,10 @@ export function render(ctx, state) {
   drawProperty(ctx, world, cam.zoom);
   drawRoads(ctx, world);
   for (const lot of world.lots) {
-    drawLot(ctx, lot, selectedLot === lot, showNumbers, cam.zoom, workAlpha ? workAlpha(lot) : 0, activeLot === lot);
+    drawLot(ctx, lot, selectedLot === lot, showNumbers, cam.zoom, workAlpha ? workAlpha(lot) : 0, activeLots ? activeLots.has(lot) : false);
   }
   for (const t of world.trees) drawTree(ctx, t);
   drawStreetLabels(ctx, world, cam.zoom);
-  drawTruck(ctx, truck, cam.zoom);
+  for (const t of trucks) drawTruck(ctx, t, cam.zoom);
   if (floaters && floaters.length) drawFloaters(ctx, floaters, cam.zoom);
 }

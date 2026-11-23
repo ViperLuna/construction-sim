@@ -374,7 +374,7 @@ test('hiring: cash on hand matters, then the new hire rides in the truck and spe
   assert.ok(result.ok);
   assert.equal(dispatcher.roster.employees.length, 1);
   assert.ok(!dispatcher.applicants.includes(common), 'they leave the pool');
-  assert.ok(dispatcher.roster.isSeated(result.member), 'a seat in the truck');
+  assert.ok(dispatcher.isSeated(result.member), 'a seat in the truck');
   const gainWeeds = dispatcher.rateFor(weeds) / aloneWeeds;
   const gainMow = dispatcher.rateFor(mow) / aloneMow;
   assert.ok(gainWeeds > gainMow, 'a second person helps more with weeding than with mowing');
@@ -627,7 +627,7 @@ test('imported save files are checked', () => {
   assert.ok(parseSaveText(JSON.stringify(saved)));
   assert.throws(() => parseSaveText('hello'), /not a save/);
   assert.throws(() => parseSaveText('{"v":1}'), /clock/);
-  assert.throws(() => parseSaveText(JSON.stringify({ ...saved, v: 2 })), /version/);
+  assert.throws(() => parseSaveText(JSON.stringify({ ...saved, v: 99 })), /version/);
   assert.throws(() => parseSaveText(JSON.stringify({ ...saved, economy: { money: 'lots', fuelGal: 5 } })), /money or fuel/);
   assert.throws(() => validate({ ...saved, roster: [] }), /crew/);
 });
@@ -636,9 +636,316 @@ test('a save that mentions lots or jobs that no longer exist loads without them'
   const a = messyGame();
   const saved = JSON.parse(JSON.stringify(serialize(a)));
   saved.offers.push({ ...saved.offers[0], id: 'ghost', lotId: 'nowhere' });
-  saved.schedule.push({ ...saved.schedule[0], id: 99, typeId: 'moon-mining' });
+  const queue = saved.crews[0].queue;
+  queue.push({ ...queue[0], id: 99, typeId: 'moon-mining' });
   const b = setup();
   restore(b, saved);
   assert.ok(!b.dispatcher.offers.some((o) => o.id === 'ghost'));
   assert.ok(!b.dispatcher.schedule.some((j) => j.id === 99));
+});
+
+// ---------------------------------------------------- crews, vehicles & rentals
+import { VEHICLE_TYPES } from '../js/data/vehicles.js';
+
+// A company with some cash, so money isn't what the test is about.
+function rich() {
+  const ctx = setup();
+  ctx.economy.money = 50000;
+  return ctx;
+}
+function hireNext(ctx, offerExtra = 0) {
+  const a = ctx.dispatcher.applicants[0];
+  const result = ctx.dispatcher.hire(a.id, a.ask + offerExtra);
+  assert.ok(result.ok, `hire failed: ${result.reason}`);
+  return result.member;
+}
+// End the day and let it be the next morning.
+function nextDay(ctx) {
+  run(ctx, () => ctx.clock.shiftOver);
+  return ctx.dispatcher.endDay();
+}
+
+test('day one: the owner, one half-ton truck, one crew, four parking spots', () => {
+  const { dispatcher, world } = setup();
+  assert.equal(dispatcher.crews.length, 1);
+  assert.equal(dispatcher.crews[0].name, 'Crew (1)');
+  assert.deepEqual(dispatcher.crews[0].memberIds, ['owner']);
+  assert.equal(dispatcher.vehicles.length, 1);
+  assert.equal(dispatcher.vehicles[0].seats, 2);
+  assert.equal(dispatcher.vehicles[0].owned, true);
+  assert.equal(world.property.parkNodes.length, 4);
+});
+
+test('new hires fill crews in pairs: the truck first, then a new crew with no vehicle', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  const a = hireNext(ctx);
+  assert.equal(dispatcher.crewOf(a.id).id, 1, 'second person rides with the owner');
+  const b = hireNext(ctx);
+  const crew2 = dispatcher.crewOf(b.id);
+  assert.equal(crew2.id, 2, 'the third person starts Crew (2)');
+  assert.equal(crew2.vehicleId, null, 'which has no vehicle yet');
+  const c = hireNext(ctx);
+  assert.equal(dispatcher.crewOf(c.id).id, 2, 'and the fourth joins them');
+  assert.equal(dispatcher.roster.isFull, true);
+  assert.equal(dispatcher.capacityOf(crew2), 2, 'two people at most without a vehicle');
+});
+
+test('a crew with no vehicle is ignored when there is a crew with one', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  hireNext(ctx);
+  hireNext(ctx); // Crew (2), no vehicle
+  assert.deepEqual(dispatcher.eligibleCrews().map((c) => c.id), [1]);
+  const job = take(dispatcher);
+  assert.equal(job.crewId, 1);
+});
+
+test('renting: arrives the next business day, costs a flat fee every day you hold it', () => {
+  const ctx = rich();
+  const { dispatcher, economy, clock } = ctx;
+  const order = dispatcher.orderVehicle('pickup', 'rent');
+  assert.ok(order.ok);
+  assert.equal(dispatcher.vehicles.length, 1, 'not here yet');
+  assert.equal(economy.money, 50000, 'nothing to pay up front');
+  const day0 = nextDay(ctx);
+  assert.equal(day0.rent.total, 0, 'it had not arrived on day one');
+  assert.equal(dispatcher.vehicles.length, 2, 'there on the next morning');
+  assert.equal(dispatcher.deliveries.length, 0);
+  assert.equal(partsAt(clock.minutes).time, '7:00 AM');
+  const v = dispatcher.vehicles[1];
+  assert.equal(v.owned, false);
+  assert.equal(v.rentPerDay, VEHICLE_TYPES.pickup.rentPerDay);
+  assert.notEqual(v.parkSlot, dispatcher.vehicles[0].parkSlot, 'parks in its own spot');
+  const day1 = nextDay(ctx);
+  assert.equal(day1.rent.total, 35);
+  assert.equal(day1.total, 0, 'the owner is the only one on the payroll');
+});
+
+test('renting over a weekend costs three days, so send it back on Friday', () => {
+  const ctx = rich();
+  const { dispatcher, economy, clock } = ctx;
+  clock.minutes = 4 * 1440; // Friday 7 AM
+  dispatcher.vehicles.push({ ...dispatcher.vehicles[0], id: 9, owned: false, rentPerDay: 35, name: 'Pickup truck', parkSlot: 1 });
+  const before = economy.money;
+  const pay = nextDay(ctx);
+  assert.equal(partsAt(clock.minutes).day, 'Mon');
+  assert.equal(pay.rent.total, 35 * 3, 'Friday, Saturday and Sunday');
+  assert.equal(economy.money, before - 105);
+  // sending it back first avoids the charge
+  assert.ok(dispatcher.returnVehicle(9).ok);
+  clock.minutes = 4 * 1440;
+  clock.shiftOver = false;
+  const free = nextDay(ctx);
+  assert.equal(free.rent.total, 0);
+});
+
+test('buying: pay the price now, it arrives the next business day, and it is yours with no rent', () => {
+  const ctx = setup();
+  const { dispatcher, economy } = ctx;
+  assert.deepEqual(dispatcher.orderVehicle('crewCab', 'buy'), { ok: false, reason: 'cash' }, `$${economy.money} is not enough for a crew cab`);
+  economy.money = 30000;
+  assert.ok(dispatcher.orderVehicle('crewCab', 'buy').ok);
+  assert.equal(economy.money, 30000 - VEHICLE_TYPES.crewCab.price);
+  nextDay(ctx);
+  const v = dispatcher.vehicles.find((x) => x.typeId === 'crewCab');
+  assert.ok(v && v.owned && v.rentPerDay === 0 && v.seats === 4);
+  assert.deepEqual(dispatcher.returnVehicle(v.id), { ok: false, reason: 'owned' }, 'you cannot return what you bought');
+});
+
+test('there is parking for four vehicles, counting the ones on their way', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  for (let i = 0; i < 3; i++) assert.ok(dispatcher.orderVehicle('halfTon', 'rent').ok);
+  assert.deepEqual(dispatcher.orderVehicle('halfTon', 'rent'), { ok: false, reason: 'parking' });
+});
+
+test('vehicles go to crews only when it is safe, and only if the seats fit', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  hireNext(ctx);
+  hireNext(ctx);
+  hireNext(ctx); // crew 1: owner + A, crew 2: B + C
+  dispatcher.orderVehicle('halfTon', 'rent');
+  dispatcher.orderVehicle('pickup', 'rent');
+  nextDay(ctx);
+  const [truck1, rental, pickup] = dispatcher.vehicles;
+  assert.deepEqual(dispatcher.assignVehicle(2, rental.id), { ok: true });
+  assert.equal(dispatcher.vehicleOf(dispatcher.crew(2)).id, rental.id);
+  assert.ok(dispatcher.rateFor(JOB_TYPES.mow, dispatcher.crew(2)) > 0);
+  // moving the truck between crews takes it from the one that had it
+  assert.deepEqual(dispatcher.assignVehicle(2, truck1.id), { ok: true });
+  assert.equal(dispatcher.crew(1).vehicleId, null);
+  assert.deepEqual(dispatcher.assignVehicle(1, rental.id), { ok: true });
+  assert.equal(dispatcher.crew(2).vehicleId, truck1.id);
+  // a 3-seat pickup works for a 2-person crew; and a crew bigger than the seats is refused
+  assert.deepEqual(dispatcher.assignVehicle(1, pickup.id), { ok: true });
+  dispatcher.crew(1).memberIds.push('x1', 'x2'); // pretend a crew of four
+  assert.deepEqual(dispatcher.assignVehicle(1, rental.id), { ok: false, reason: 'seats' });
+});
+
+test('crews that are out working cannot be reshuffled', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  hireNext(ctx);
+  take(dispatcher);
+  run(ctx, () => dispatcher.crews[0].state !== 'idle');
+  const crew2 = dispatcher.createCrew();
+  assert.deepEqual(dispatcher.assignVehicle(1, null), { ok: false, reason: 'busy' });
+  const member = dispatcher.crews[0].memberIds[1];
+  assert.deepEqual(dispatcher.moveMember(member, crew2.id), { ok: false, reason: 'busy' });
+  assert.deepEqual(dispatcher.fire(member), { ok: false, reason: 'busy' });
+});
+
+test('moving people between crews, renaming, and tidying up', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  const a = hireNext(ctx);
+  const crew2 = dispatcher.createCrew();
+  assert.equal(crew2.name, 'Crew (2)');
+  assert.deepEqual(dispatcher.moveMember(a.id, crew2.id), { ok: true });
+  assert.equal(dispatcher.crewOf(a.id), crew2);
+  assert.equal(dispatcher.moveMember(a.id, 1).ok, true, 'and back');
+  assert.deepEqual(dispatcher.moveMember('owner', crew2.id), { ok: true }, 'the owner can lead a crew too');
+  assert.deepEqual(dispatcher.moveMember(a.id, crew2.id), { ok: true });
+  assert.deepEqual(dispatcher.moveMember(a.id, 1), { ok: true }, 'a crew with one vehicle seat left');
+  assert.ok(dispatcher.renameCrew(2, '  The Mowers  '));
+  assert.equal(dispatcher.crew(2).name, 'The Mowers');
+  assert.equal(dispatcher.renameCrew(2, '   '), false, 'no blank names');
+  const empty = dispatcher.crews.find((c) => c.memberIds.length === 0);
+  if (empty) assert.ok(dispatcher.deleteCrew(empty.id));
+  assert.equal(dispatcher.deleteCrew(dispatcher.crews[0].id), false, 'a crew with people cannot be deleted');
+});
+
+test('two crews with two trucks work at the same time, and get more done', () => {
+  const solo = rich();
+  const duo = rich();
+  // Duo: hire two people, rent a second truck, and give it to the second crew.
+  hireNext(duo);
+  hireNext(duo);
+  duo.dispatcher.orderVehicle('halfTon', 'rent');
+  nextDay(duo);
+  assert.ok(duo.dispatcher.assignVehicle(2, duo.dispatcher.vehicles[1].id).ok);
+
+  // Six jobs on the board; how long until they're all done, and were crews working side by side?
+  const doDay = (ctx) => {
+    const wanted = 6;
+    for (let i = 0; i < wanted; i++) take(ctx.dispatcher);
+    const startedAt = ctx.clock.minutes;
+    let both = 0;
+    let allDoneAt = null;
+    for (let i = 0; i < 400000 && allDoneAt === null && ctx.clock.minutes - startedAt < 3 * 1440; i++) {
+      ctx.clock.minutes += 0.05;
+      ctx.dispatcher.update(0.05);
+      if (ctx.dispatcher.crews.filter((c) => c.state === 'working').length >= 2) both++;
+      if (ctx.dispatcher.history.filter((j) => j.finishedAt >= startedAt).length >= wanted) allDoneAt = ctx.clock.minutes - startedAt;
+      if (!ctx.clock.shiftOver && ctx.dispatcher.shiftIsOver()) {
+        ctx.clock.shiftOver = true;
+        ctx.dispatcher.endDay();
+        ctx.clock.shiftOver = false;
+      }
+    }
+    return { allDoneAt, both };
+  };
+  const a = doDay(solo);
+  const b = doDay(duo);
+  assert.ok(a.allDoneAt !== null && b.allDoneAt !== null, 'both finished all six');
+  assert.ok(b.both > 0, 'both crews were out working at the same moment');
+  const crewsUsed = new Set(duo.dispatcher.history.map((j) => j.crewId));
+  assert.deepEqual([...crewsUsed].sort(), [1, 2], 'jobs went to both crews');
+  assert.ok(b.allDoneAt < a.allDoneAt, `two crews took ${Math.round(b.allDoneAt)} min vs one crew's ${Math.round(a.allDoneAt)}`);
+});
+
+test('a crew keeps working on its own queue when another crew is slow', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  hireNext(ctx);
+  hireNext(ctx);
+  dispatcher.orderVehicle('halfTon', 'rent');
+  nextDay(ctx);
+  dispatcher.assignVehicle(2, dispatcher.vehicles[1].id);
+  for (let i = 0; i < 6; i++) take(dispatcher);
+  const lengths = dispatcher.crews.map((c) => c.queue.length);
+  assert.ok(lengths[0] > 0 && lengths[1] > 0, `work was shared out: ${lengths}`);
+  for (const crew of dispatcher.crews) {
+    for (let i = 1; i < crew.queue.length; i++) assert.ok(crew.queue[i].start >= crew.queue[i - 1].end - 1e-9, 'no overlap inside a crew');
+  }
+});
+
+test('fire: not the owner, not a crew out working, not the last person on a crew with work booked', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  const a = hireNext(ctx);
+  assert.deepEqual(dispatcher.fire('owner'), { ok: false, reason: 'owner' });
+  const crew2 = dispatcher.createCrew();
+  dispatcher.moveMember(a.id, crew2.id);
+  dispatcher.vehicles[0].truck; // crew 2 has no vehicle; give it the truck so it can take work
+  dispatcher.assignVehicle(2, dispatcher.vehicles[0].id);
+  const job = take(dispatcher);
+  assert.equal(job.crewId, 2);
+  assert.deepEqual(dispatcher.fire(a.id), { ok: false, reason: 'jobs' });
+});
+
+test('everyone goes home before the shift ends and the game can be saved', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  hireNext(ctx);
+  hireNext(ctx);
+  dispatcher.orderVehicle('halfTon', 'rent');
+  nextDay(ctx);
+  dispatcher.assignVehicle(2, dispatcher.vehicles[1].id);
+  for (let i = 0; i < 4; i++) take(dispatcher);
+  run(ctx, () => ctx.clock.shiftOver);
+  assert.ok(dispatcher.isIdleAtHome());
+  assert.ok(canSave(ctx));
+  for (const v of dispatcher.vehicles) assert.equal(v.truck.nodeId, dispatcher.parkNodeOf(v), 'each truck is back in its own spot');
+});
+
+test('saving keeps crews, vehicles, orders and queues', () => {
+  const ctx = rich();
+  const { dispatcher } = ctx;
+  hireNext(ctx);
+  hireNext(ctx);
+  dispatcher.orderVehicle('halfTon', 'rent');
+  nextDay(ctx);
+  dispatcher.assignVehicle(2, dispatcher.vehicles[1].id);
+  dispatcher.renameCrew(2, 'Night Owls');
+  for (let i = 0; i < 4; i++) take(dispatcher);
+  dispatcher.orderVehicle('pickup', 'buy');
+  const saved = JSON.parse(JSON.stringify(serialize(ctx)));
+  const b = setup();
+  restore(b, saved);
+  assert.deepEqual(strip(serialize(b)), strip(saved), 'round trip loses nothing');
+  assert.equal(b.dispatcher.crews.length, 2);
+  assert.equal(b.dispatcher.crew(2).name, 'Night Owls');
+  assert.equal(b.dispatcher.vehicles.length, 2);
+  assert.equal(b.dispatcher.deliveries.length, 1);
+  assert.equal(b.dispatcher.vehicleOf(b.dispatcher.crew(2)).owned, false);
+  // the loaded company carries on: the queued work gets done by both crews
+  run(b, () => b.dispatcher.schedule.length === 0 && b.dispatcher.allHome());
+  assert.ok(b.dispatcher.history.length >= 4);
+});
+
+test('a save from the single-crew version still loads (migration)', () => {
+  const ctx = rich();
+  hireNext(ctx);
+  hireNext(ctx);
+  hireNext(ctx);
+  take(ctx.dispatcher);
+  take(ctx.dispatcher);
+  const v2 = JSON.parse(JSON.stringify(serialize(ctx)));
+  // what a version-1 save looked like: no crews or vehicles, one schedule
+  const { crews, vehicles, deliveries, counters, ...rest } = v2;
+  const v1 = { ...rest, v: 1, nextId: counters.job, schedule: crews[0].queue.map(({ crewId, ...j }) => j) };
+  const b = setup();
+  restore(b, v1);
+  assert.equal(b.dispatcher.crews.length, 2, 'four people become two crews of two');
+  assert.equal(b.dispatcher.crews[0].vehicleId, 1, 'the first crew gets the truck');
+  assert.equal(b.dispatcher.crews[1].vehicleId, null);
+  assert.equal(b.dispatcher.vehicles.length, 1);
+  assert.equal(b.dispatcher.schedule.length, 2, 'the queued jobs came through');
+  assert.equal(b.economy.money, ctx.economy.money);
+  assert.ok(parseSaveText(JSON.stringify(v1)), 'an old save file can still be imported');
+  run(b, () => b.dispatcher.schedule.length === 0 && b.dispatcher.allHome());
+  assert.ok(b.dispatcher.history.length >= 2);
 });

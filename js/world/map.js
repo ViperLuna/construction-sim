@@ -117,6 +117,13 @@ export function buildWorld() {
   const gateNode = node(PROPERTY.gateX, stateY);
   const homeNode = node(PROPERTY.gateX, PROPERTY.homeY);
   link(gateNode, homeNode, 'Your Driveway');
+  // A row of parking spots beside the first one, for more trucks.
+  const parkNodes = [homeNode];
+  for (let i = 1; i < 4; i++) {
+    const spot = node(Number((PROPERTY.gateX + i * 1.6).toFixed(2)), PROPERTY.homeY);
+    link(parkNodes[i - 1], spot, 'Your Driveway');
+    parkNodes.push(spot);
+  }
 
   for (const lot of lots) lot.accessNode = node(lot.accessX, lot.accessY);
 
@@ -150,6 +157,7 @@ export function buildWorld() {
     ...PROPERTY,
     gateNode,
     homeNode,
+    parkNodes,
     address: 'Your Property',
   };
 

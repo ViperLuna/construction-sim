@@ -250,6 +250,8 @@ State St ------------+----+----+----+----+----+----+-----------
 - **[PROPOSED]** A team can only be dispatched with members who are on shift.
 - **[LOCKED]** **Crew size is limited by the assigned vehicle's seats.** Larger crews come with larger vehicles.
 - **[LOCKED]** **A crew with no vehicle is capped at 2 people.** It can still be assigned to a job, but **cannot leave the property until a vehicle is available** ("bad management, but doable").
+- **[BUILT]** **Crews and vehicles.** Each crew has its own people, vehicle and job queue, and works on its own, so several crews can be out at once. New hires fill a crew up to its seats, then start a new crew. Jobs go to **the first available crew that can finish them in time**, and crews with a vehicle come first. A crew with no vehicle only gets work if no crew has one. You can rename crews, move people between them, and give a crew any vehicle with enough seats, but only while the crews involved are home. Each truck has its own parking spot on the property (four spots), and its cab is painted a different color on the map.
+- **[BUILT]** **Renting and buying.** Orders arrive at the start of the next business day. Rentals charge a flat fee for **every calendar day** you hold them (so a Friday-to-Monday rental costs three days), taken at End Day along with payroll, and can be returned any time while parked. Purchases are paid up front and need the cash. Vehicles so far: half-ton (2 seats), pickup (3), crew cab (4).
 - **[PROPOSED]** The calendar flags a crew with no vehicle in **red**. If a job's deadline passes while the crew is stuck, normal late penalties apply.
 
 ---

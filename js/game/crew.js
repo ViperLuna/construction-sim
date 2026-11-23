@@ -156,15 +156,6 @@ export class Roster {
     return this.members.length >= CONFIG.maxCrewSize;
   }
 
-  // Who rides in the truck (the first people in the list, up to its seats).
-  get seated() {
-    return this.members.slice(0, CONFIG.truckSeats);
-  }
-
-  isSeated(member) {
-    return this.seated.includes(member);
-  }
-
   hire(applicant, wage, minutes) {
     const { id, name, stats, level, xp, points } = applicant;
     const member = { id, name, isOwner: false, stats: { ...stats }, level, xp, points, wage, hiredAt: minutes };

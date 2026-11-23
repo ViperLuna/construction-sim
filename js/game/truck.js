@@ -133,21 +133,26 @@ export class Truck {
     this.travelled = 0;
     this.destNode = startNodeId;
     this.onArrive = null;
+    this.tint = '#3e6fa8'; // cab colour on the map
   }
 
-  // Put the truck back in its parking spot at the property (used when a save is
-  // loaded). Same spot as the start of a new game.
-  placeAtHome() {
-    const home = this.world.nodes[this.world.property.homeNode];
-    this.nodeId = this.world.property.homeNode;
-    this.x = home.x + CONFIG.laneOffset;
-    this.y = home.y;
+  // Put the truck at a node, parked in its lane and facing north (used for a new
+  // truck, and when a save is loaded).
+  placeAt(nodeId) {
+    const n = this.world.nodes[nodeId];
+    this.nodeId = nodeId;
+    this.x = n.x + CONFIG.laneOffset;
+    this.y = n.y;
     this.heading = -Math.PI / 2;
     this.state = 'parked';
     this.pts = [];
     this.cum = [];
     this.travelled = 0;
-    this.destNode = this.nodeId;
+    this.destNode = nodeId;
+  }
+
+  placeAtHome() {
+    this.placeAt(this.world.property.homeNode);
   }
 
   // Estimate (tiles and game minutes) without starting the trip.

@@ -45,6 +45,6 @@ Open the site, then use **Add to Home Screen** (iPhone: Share menu, Android: bro
 
 ## Status
 
-Saving: automatic, with export/import. Slice 3 (part 1): hiring. Slice 2: the first real job. Accept mowing jobs from a daily list, the truck drives out, stripes appear on the lawn as it's mowed, you get paid, and the crew clocks out at 5 PM. End Day skips to the next morning.
+Several crews with their own trucks, renting and buying vehicles. Saving: automatic, with export/import. Slice 3 (part 1): hiring. Slice 2: the first real job. Accept mowing jobs from a daily list, the truck drives out, stripes appear on the lawn as it's mowed, you get paid, and the crew clocks out at 5 PM. End Day skips to the next morning.
 
 New: a Crew screen with a daily pool of applicants, wage offers, payroll at End Day, XP and stat points. Placeholder for now: the town map, one truck, and three simple job types. See `docs/DESIGN.md` for where it's going.

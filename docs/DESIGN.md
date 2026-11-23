@@ -429,6 +429,10 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[LOCKED]** Crews are **auto-created in pairs (2 people)** and can be edited later.
 - **[LOCKED]** When bigger vehicles are available (a 4-seat truck, later a van), crews can be larger.
 - **[LOCKED]** The crew assignment area includes a **vehicle assignment** for each crew. Crew size is limited by the vehicle's seats.
+- **[LOCKED]** **A crew with no vehicle is capped at 2 people.** It can still be **assigned to a job**, but **cannot leave the property until a vehicle is available** ("bad management, but doable").
+- **[PROPOSED]** The calendar flags a crew with no vehicle in **red** ("no vehicle"). If a job's deadline passes while the crew is stuck, normal late penalties apply.
+- **[PROPOSED]** A vehicle can only be in **one place at a time**. The scheduler never double-books a vehicle, so two crews sharing one vehicle can only work non-overlapping jobs.
+- **[OPEN]** Should a vehicle be **permanently assigned** to one crew (reassignable between days), or borrowed by whichever crew needs it? Leaning **permanent assignment**.
 
 ### 22.5 Completion windows and priority
 - **[LOCKED]** Jobs have a **completion window**, a deadline giving the player some time to get them done.

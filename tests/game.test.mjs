@@ -49,16 +49,20 @@ test('every addressed lot is reachable from the property, within a sensible trip
 });
 
 test('scheduler: starts today if most of the job fits, otherwise next morning', () => {
+  const shiftEndMin = 600; // 5 PM, in game minutes (day 0 starts at 7 AM)
+  const block = setup().dispatcher.offers[0].est.blockMin;
   const cases = [
-    [7 * 60, 'Mon', '2:00 PM'], // 2 PM, plenty of time
-    [8.83 * 60, 'Mon', '3:49 PM'], // 3:49 PM, at least 60% fits
-    [9.5 * 60, 'Tue', '7:00 AM'], // 4:30 PM, too late
+    ['plenty of time', shiftEndMin - block - 30, true],
+    ['just over 60% fits', shiftEndMin - Math.ceil(block * 0.62), true],
+    ['under 60% fits', shiftEndMin - Math.floor(block * 0.55), false],
+    ['almost quitting time', shiftEndMin - 5, false],
   ];
-  for (const [minutes, day, time] of cases) {
-    const ctx = setup(minutes);
+  for (const [label, startMinute, today] of cases) {
+    const ctx = setup(startMinute);
     const job = ctx.dispatcher.accept(ctx.dispatcher.offers[0].id);
     const p = partsAt(job.start);
-    assert.equal(`${p.day} ${p.time}`, `${day} ${time}`);
+    if (today) assert.equal(p.day, 'Mon', label + ' -> same day');
+    else assert.equal(`${p.day} ${p.time}`, 'Tue 7:00 AM', label + ' -> next morning');
   }
 });
 
@@ -91,7 +95,7 @@ test('a full working day: jobs run, pay lands, crew clocks out at home, End Day 
   assert.equal(partsAt(clock.minutes).day + ' ' + partsAt(clock.minutes).time, 'Tue 7:00 AM');
   assert.equal(clock.shiftOver, false);
   assert.equal(dispatcher.offers.length, 6, 'fresh offers each morning');
-  assert.equal(world.lots.filter((l) => l.mow).length, 0, 'old stripes have faded away');
+  assert.equal(world.lots.filter((l) => l.work).length, 0, 'old work has faded away');
 });
 
 test('End Day on a Friday goes to Monday', () => {
@@ -101,23 +105,87 @@ test('End Day on a Friday goes to Monday', () => {
   assert.equal(partsAt(ctx.clock.minutes).day, 'Mon');
 });
 
-test('mown stripes hold, then fade to nothing', () => {
+test('finished work holds, then fades to nothing (for every job type)', () => {
   const ctx = setup();
   const { dispatcher, clock } = ctx;
   dispatcher.accept(dispatcher.offers[0].id);
   run(ctx, () => dispatcher.history.length === 1);
   const lot = dispatcher.history[0].lot;
-  const t0 = lot.mowDoneAt;
+  const t0 = lot.work.doneAt;
   const alphaAt = (age) => {
     clock.minutes = t0 + age;
-    dispatcher.fadeLawns();
-    return dispatcher.lawnAlpha(lot);
+    dispatcher.fadeWork();
+    return dispatcher.workAlpha(lot);
   };
   assert.equal(alphaAt(0), 1);
   assert.equal(alphaAt(40), 1);
   const mid = alphaAt(67);
   assert.ok(mid > 0.3 && mid < 0.7, `half faded at ${mid}`);
   assert.equal(alphaAt(100), 0);
+  assert.equal(lot.work, null);
+});
+
+test('offers mix job types, and longer jobs take longer', () => {
+  const seen = new Map();
+  for (let day = 0; day < 12; day++) {
+    const ctx = setup(day * 1440);
+    for (const o of ctx.dispatcher.offers) {
+      if (!seen.has(o.type.id)) seen.set(o.type.id, o.est.workMin);
+      assert.equal(o.lot.kind, 'house');
+      assert.ok(o.pay >= o.type.payRange[0] && o.pay <= o.type.payRange[1]);
+      assert.equal(o.pay % o.type.payStep, 0);
+    }
+  }
+  assert.deepEqual([...seen.keys()].sort(), ['hedges', 'mow', 'weeds']);
+  assert.ok(seen.get('weeds') > seen.get('mow'), 'weeding takes longer than mowing');
+});
+
+test('every job type runs start to finish and pays', () => {
+  const done = new Set();
+  for (let day = 0; day < 12 && done.size < 3; day++) {
+    const ctx = setup(day * 1440);
+    const offer = ctx.dispatcher.offers.find((o) => !done.has(o.type.id));
+    if (!offer) continue;
+    const before = ctx.economy.money;
+    ctx.dispatcher.accept(offer.id);
+    run(ctx, () => ctx.dispatcher.history.length === 1);
+    assert.equal(ctx.economy.money, before + offer.pay, offer.type.id);
+    assert.equal(offer.lot.work.type.id, offer.type.id);
+    done.add(offer.type.id);
+  }
+  assert.deepEqual([...done].sort(), ['hedges', 'mow', 'weeds']);
+});
+
+test('skip: to quitting time when idle with nothing scheduled', () => {
+  const ctx = setup(60); // 8:00 AM
+  const target = ctx.dispatcher.skipTarget();
+  assert.equal(partsAt(target.minutes).time, '5:00 PM');
+  assert.equal(target.job, null);
+  assert.ok(ctx.dispatcher.skipAhead());
+  assert.equal(partsAt(ctx.clock.minutes).time, '5:00 PM');
+});
+
+test('skip: jumps to the next job when one is scheduled later today', () => {
+  const ctx = setup(60);
+  const first = ctx.dispatcher.accept(ctx.dispatcher.offers[0].id);
+  ctx.dispatcher.accept(ctx.dispatcher.offers[0].id); // queued behind it
+  run(ctx, () => ctx.dispatcher.history.length === 1 && ctx.dispatcher.isIdleAtHome());
+  const second = ctx.dispatcher.schedule[0];
+  assert.ok(second.start > ctx.clock.minutes + 1, 'crew is home with a wait ahead of them');
+  const target = ctx.dispatcher.skipTarget();
+  assert.equal(target.minutes, second.start);
+  assert.equal(target.job, second);
+  assert.equal(first.status, 'done');
+});
+
+test('skip: not offered while out on a job, or after hours', () => {
+  const busy = setup();
+  busy.dispatcher.accept(busy.dispatcher.offers[0].id);
+  run(busy, () => busy.dispatcher.state !== 'idle');
+  assert.equal(busy.dispatcher.skipTarget(), null);
+  const late = setup(600);
+  late.clock.shiftOver = true;
+  assert.equal(late.dispatcher.skipTarget(), null);
 });
 
 test('truck turns smoothly: no spinning, the same at any speed or frame rate', () => {

@@ -2,6 +2,8 @@
 // lightweight visuals that run well on phones). Everything is in tile units;
 // the camera transform turns tiles into pixels.
 
+import { mulberry32, hashSeed } from '../util/rng.js';
+
 const HOUSE_PALETTE = [
   { wall: '#e8d9b5', roof: '#a8553f' },
   { wall: '#cfe0ea', roof: '#566d86' },
@@ -89,16 +91,75 @@ function drawRoads(ctx, world) {
   ctx.setLineDash([]);
 }
 
-// Mowing stripes appear band by band as the job progresses (the staged visual
-// from docs/DESIGN.md, section 8.9). Alternating bands run in opposite
-// directions, like a real mower going back and forth.
+// ---------------------------------------------------------------------------
+// Work in progress on a lot (the staged visuals from docs/DESIGN.md, 8.9).
+// Each job type's `visual` picks a look. Pieces appear a little at a time as
+// the job's progress goes from 0 to 1, and the finished result fades out later.
+// "Under" visuals are painted on the ground (before the building); "over"
+// visuals (shrubs, weeds, workers) are painted on top of it.
+// ---------------------------------------------------------------------------
 const MOW_BANDS = 8;
+const HEDGE_COUNT = 8;
+const WEED_COUNT = 14;
+const FLOWER_COLORS = ['#e8564a', '#f2c94c', '#f08cc0', '#ffffff', '#b58cf0'];
 
-function drawStripes(ctx, lot, alpha) {
+// Everything random about a lot's work visuals is worked out once, from the
+// lot itself, so it looks the same every time.
+function lotFx(lot) {
+  if (lot._fx) return lot._fx;
+  const rng = mulberry32(hashSeed(lot.id));
+  const south = lot.side === 'south';
+  const bed = { x: lot.x + 0.4, y: south ? lot.y + 2.9 : lot.y + 0.25, w: lot.w - 0.8, h: 0.85 };
+  const flowers = [];
+  for (let i = 0; i < 7; i++) {
+    flowers.push({
+      x: bed.x + 0.3 + (i / 6) * (bed.w - 0.6) + (rng() - 0.5) * 0.2,
+      y: bed.y + 0.25 + rng() * (bed.h - 0.5),
+      color: FLOWER_COLORS[Math.floor(rng() * FLOWER_COLORS.length)],
+    });
+  }
+  const weeds = [];
+  for (let i = 0; i < WEED_COUNT; i++) {
+    weeds.push({ x: bed.x + 0.15 + rng() * (bed.w - 0.3), y: bed.y + 0.15 + rng() * (bed.h - 0.3) });
+  }
+  weeds.sort((a, b) => a.x - b.x); // pulled left to right
+  // Shrubs line the sides and back of the yard (never the street side, where
+  // the house is), in order: down the left, across the back, up the right.
+  const fromStreet = (d) => (south ? lot.y + d : lot.y + lot.h - d);
+  const spots = [
+    [0.32, 0.8], [0.32, 1.7], [0.32, 2.6], // left side, front to back
+    [1.25, lot.h - 0.35], [2.75, lot.h - 0.35], // back, left to right
+    [lot.w - 0.32, 2.6], [lot.w - 0.32, 1.7], [lot.w - 0.32, 0.8], // right side, back to front
+  ];
+  const hedges = spots.map(([dx, d]) => ({
+    x: lot.x + dx,
+    y: fromStreet(d),
+    jx: (rng() - 0.5) * 0.12,
+    jy: (rng() - 0.5) * 0.12,
+  }));
+  lot._fx = { bed, flowers, weeds, hedges };
+  return lot._fx;
+}
+
+function drawWorker(ctx, x, y) {
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.arc(x + 0.05, y + 0.08, 0.26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2f6fb0';
+  ctx.beginPath();
+  ctx.arc(x, y, 0.26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f0c9a0';
+  ctx.beginPath();
+  ctx.arc(x, y, 0.14, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Mowing: stripes appear band by band, like a mower going back and forth.
+function drawStripes(ctx, lot, progress) {
   const bandH = lot.h / MOW_BANDS;
-  const done = lot.mow * MOW_BANDS;
-  ctx.save();
-  ctx.globalAlpha = alpha;
+  const done = progress * MOW_BANDS;
   for (let i = 0; i < MOW_BANDS; i++) {
     const f = Math.max(0, Math.min(1, done - i));
     if (f <= 0) break;
@@ -107,39 +168,111 @@ function drawStripes(ctx, lot, alpha) {
     ctx.fillStyle = i % 2 === 0 ? '#a9df86' : '#74b358';
     ctx.fillRect(x, lot.y + i * bandH, w, bandH);
   }
-  ctx.restore();
 }
 
-function drawMower(ctx, lot) {
+function drawMower(ctx, lot, progress) {
   const bandH = lot.h / MOW_BANDS;
-  const done = lot.mow * MOW_BANDS;
+  const done = progress * MOW_BANDS;
   const i = Math.min(MOW_BANDS - 1, Math.floor(done));
   const f = done - i;
   const ltr = i % 2 === 0;
   const x = ltr ? lot.x + lot.w * f : lot.x + lot.w * (1 - f);
   const y = lot.y + (i + 0.5) * bandH;
-  const back = ltr ? -0.5 : 0.5;
-  // the person pushing, then the mower
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath();
-  ctx.arc(x + back + 0.05, y + 0.08, 0.26, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#2f6fb0';
-  ctx.beginPath();
-  ctx.arc(x + back, y, 0.26, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#f0c9a0';
-  ctx.beginPath();
-  ctx.arc(x + back, y, 0.14, 0, Math.PI * 2);
-  ctx.fill();
+  drawWorker(ctx, x + (ltr ? -0.5 : 0.5), y);
   rect(ctx, x - 0.28, y - 0.2, 0.56, 0.4, '#c0392b');
   rect(ctx, x - 0.2, y - 0.12, 0.4, 0.24, '#e8593f');
 }
 
-function drawLot(ctx, lot, selected, showNumbers, zoom, mowAlpha, mowing) {
+// Hedges: shaggy overgrown shrubs get squared off one at a time.
+function drawHedges(ctx, lot, progress, active) {
+  const fx = lotFx(lot);
+  const trimmed = Math.floor(progress * HEDGE_COUNT + 1e-9);
+  fx.hedges.forEach((h, k) => {
+    if (k < trimmed) {
+      rect(ctx, h.x - 0.31, h.y - 0.29, 0.66, 0.66, 'rgba(0,0,0,0.18)');
+      rect(ctx, h.x - 0.32, h.y - 0.32, 0.64, 0.64, '#4c9a48');
+      rect(ctx, h.x - 0.32, h.y - 0.32, 0.64, 0.18, '#6fbf5f');
+    } else {
+      ctx.fillStyle = '#2f6b33';
+      for (const [dx, dy, r] of [[-0.11, 0.05, 0.3], [0.13, -0.08, 0.29], [0.02, 0.14, 0.27]]) {
+        ctx.beginPath();
+        ctx.arc(h.x + dx + h.jx, h.y + dy + h.jy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#4f9540';
+      ctx.beginPath();
+      ctx.arc(h.x + h.jx - 0.08, h.y + h.jy - 0.1, 0.13, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  if (active && trimmed < HEDGE_COUNT) {
+    const h = fx.hedges[trimmed];
+    const side = h.x < lot.x + lot.w / 2 ? 1 : -1; // stand inside the yard
+    drawWorker(ctx, h.x + side * 0.62, h.y);
+    rect(ctx, h.x + side * 0.36 - (side < 0 ? 0.3 : 0), h.y - 0.05, 0.3, 0.1, '#8a929a'); // clippers
+  }
+}
+
+// Weeds: a flower bed full of weeds gets cleared out one by one.
+function drawWeeds(ctx, lot, progress, active) {
+  const fx = lotFx(lot);
+  const b = fx.bed;
+  rect(ctx, b.x, b.y, b.w, b.h, '#6b4a2f');
+  rect(ctx, b.x, b.y, b.w, 0.07, '#4f3622');
+  for (const f of fx.flowers) {
+    ctx.fillStyle = f.color;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const pulled = Math.floor(progress * WEED_COUNT + 1e-9);
+  ctx.lineWidth = 0.05;
+  ctx.strokeStyle = '#8fae2f';
+  fx.weeds.forEach((w, i) => {
+    if (i < pulled) return;
+    for (const a of [-0.9, -0.3, 0.3, 0.9]) {
+      ctx.beginPath();
+      ctx.moveTo(w.x, w.y);
+      ctx.lineTo(w.x + Math.sin(a) * 0.22, w.y - Math.cos(a) * 0.22);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#b4cf4a';
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, 0.06, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  if (active && pulled < WEED_COUNT) {
+    const w = fx.weeds[pulled];
+    drawWorker(ctx, w.x - 0.1, lot.side === 'south' ? w.y + 0.55 : w.y - 0.5);
+  }
+}
+
+function drawWorkUnder(ctx, lot, alpha) {
+  const w = lot.work;
+  if (!w || w.type.visual !== 'stripes') return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  drawStripes(ctx, lot, w.progress);
+  ctx.restore();
+}
+
+function drawWorkOver(ctx, lot, alpha, active) {
+  const w = lot.work;
+  if (!w) return;
+  const busy = active && w.progress < 1;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (w.type.visual === 'hedges') drawHedges(ctx, lot, w.progress, busy);
+  else if (w.type.visual === 'weeds') drawWeeds(ctx, lot, w.progress, busy);
+  ctx.restore();
+  // the worker and mower are always fully visible while the job is on
+  if (busy && w.type.visual === 'stripes') drawMower(ctx, lot, w.progress);
+}
+
+function drawLot(ctx, lot, selected, showNumbers, zoom, workAlpha, working) {
   const palette = (lot.kind === 'shop' ? SHOP_PALETTE : HOUSE_PALETTE)[lot.palette];
   rect(ctx, lot.x, lot.y, lot.w, lot.h, lot.kind === 'shop' ? '#b9bdb0' : COLORS.grassLot);
-  if (mowAlpha > 0) drawStripes(ctx, lot, mowAlpha);
+  if (workAlpha > 0) drawWorkUnder(ctx, lot, workAlpha);
 
   const towardStreet = lot.side === 'south' ? -1 : 1; // direction from lot to the road
   const houseH = lot.kind === 'shop' ? 2.4 : 2;
@@ -165,7 +298,7 @@ function drawLot(ctx, lot, selected, showNumbers, zoom, mowAlpha, mowing) {
     rect(ctx, hx + houseW * 0.4, hy + houseH * 0.68, 0.45, 0.32, '#8b6b4a');
   }
 
-  if (mowing) drawMower(ctx, lot);
+  if (workAlpha > 0) drawWorkOver(ctx, lot, workAlpha, working);
 
   if (selected) {
     ctx.strokeStyle = '#ffd23f';
@@ -293,7 +426,7 @@ function drawFloaters(ctx, floaters, zoom) {
 }
 
 export function render(ctx, state) {
-  const { world, cam, truck, selectedLot, cssW, cssH, dpr, lawnAlpha, mowingLot, floaters } = state;
+  const { world, cam, truck, selectedLot, cssW, cssH, dpr, workAlpha, activeLot, floaters } = state;
 
   // Clear in screen space, then draw in world space.
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -308,7 +441,7 @@ export function render(ctx, state) {
   drawProperty(ctx, world, cam.zoom);
   drawRoads(ctx, world);
   for (const lot of world.lots) {
-    drawLot(ctx, lot, selectedLot === lot, showNumbers, cam.zoom, lawnAlpha ? lawnAlpha(lot) : 0, mowingLot === lot);
+    drawLot(ctx, lot, selectedLot === lot, showNumbers, cam.zoom, workAlpha ? workAlpha(lot) : 0, activeLot === lot);
   }
   for (const t of world.trees) drawTree(ctx, t);
   drawStreetLabels(ctx, world, cam.zoom);

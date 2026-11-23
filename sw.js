@@ -15,6 +15,7 @@ const ASSETS = [
   './js/settings.js',
   './js/audio.js',
   './js/data/jobs.js',
+  './js/util/rng.js',
   './js/world/map.js',
   './js/world/pathfind.js',
   './js/game/truck.js',

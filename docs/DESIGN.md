@@ -57,6 +57,7 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[LOCKED]** The player sets business hours. **Default: 7:00 AM to 5:00 PM, Monday to Friday.**
 - **[LOCKED]** **Normal pace: 1 real minute = 1 in-game hour** (a 10-hour shift is about 10 real minutes). Configurable via `secondsPerGameHour`, with **60 as both the default and the minimum**. Higher values slow the game down.
 - **[LOCKED]** Pause and fast-forward controls exist.
+- **[LOCKED]** **Skip idle time:** during the shift, when the crew is home with nothing due, a button skips ahead to the next scheduled job, or to quitting time if nothing else is scheduled. It's never automatic and not offered while a crew is out working. (Crew on the clock are still paid for the skipped time.)
 - **[LOCKED]** **After-hours skip:** when nobody is working, the player can skip ahead. It is **always manual**, available at the end of the shift only, because the player may want to hire, buy or configure things before the next day starts. Nothing auto-advances past end of shift.
 
 ### 3.2 Weather

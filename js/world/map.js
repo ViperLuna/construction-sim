@@ -5,6 +5,8 @@
 //
 // All coordinates are in tiles. y grows downward (screen space).
 
+import { mulberry32 } from '../util/rng.js';
+
 export const WORLD = { w: 64, h: 60 };
 
 const X_MIN = 4;
@@ -30,17 +32,6 @@ const STREETS = [
 
 // The player's property sits south of State St, in the southwest.
 const PROPERTY = { x: 2, y: 49, w: 22, h: 9, gateX: 8, homeY: 51, developedMaxX: 13 };
-
-function mulberry32(seed) {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export function buildWorld() {
   const rng = mulberry32(20250407);

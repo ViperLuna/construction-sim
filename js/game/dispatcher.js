@@ -4,23 +4,13 @@
 import { CONFIG } from '../config.js';
 import { JOB_TYPES } from '../data/jobs.js';
 import { findPath } from '../world/pathfind.js';
+import { mulberry32 } from '../util/rng.js';
 import { FUEL_GAL_PER_TILE, FUEL_PRICE } from './economy.js';
 import { dayOf, shiftStart, shiftEnd, nextBusinessDay, isBusinessDay, timeOfDay, SHIFT_END_MIN } from './clock.js';
 
 const BUFFER = 1.2; // extra time added to every scheduled block
 const MOST_FITS = 0.6; // start today if at least this much of the job fits
 const OFFERS_PER_DAY = 6;
-
-function mulberry32(seed) {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export class Dispatcher {
   constructor({ world, truck, clock, economy, crew }) {
@@ -54,10 +44,20 @@ export class Dispatcher {
     const day = this.clock.day;
     const rng = mulberry32(day * 7919 + 13);
     const taken = new Set(this.schedule.map((j) => j.lot.id));
-    const type = JOB_TYPES.mow;
-    const candidates = this.world.lots.filter((l) => type.lotKinds.includes(l.kind) && !taken.has(l.id));
+    const types = Object.values(JOB_TYPES);
+    const totalWeight = types.reduce((sum, t) => sum + t.weight, 0);
+    const pickType = () => {
+      let roll = rng() * totalWeight;
+      for (const t of types) {
+        roll -= t.weight;
+        if (roll < 0) return t;
+      }
+      return types[0];
+    };
+    const candidates = this.world.lots.filter((l) => l.kind === 'house' && !taken.has(l.id));
     const offers = [];
     while (offers.length < OFFERS_PER_DAY && candidates.length) {
+      const type = pickType();
       const lot = candidates.splice(Math.floor(rng() * candidates.length), 1)[0];
       const steps = Math.round((type.payRange[1] - type.payRange[0]) / type.payStep);
       const pay = type.payRange[0] + Math.floor(rng() * (steps + 1)) * type.payStep;
@@ -148,7 +148,7 @@ export class Dispatcher {
     else if (this.state === 'travelling') this.tickTravel();
     else if (this.state === 'working') this.tickWork(dt);
 
-    this.fadeLawns();
+    this.fadeWork();
   }
 
   tickIdle() {
@@ -184,8 +184,9 @@ export class Dispatcher {
     this.purpose = null;
     job.status = 'working';
     job.workDone = 0;
-    job.lot.mow = 0;
-    job.lot.mowDoneAt = null;
+    // Each lot remembers the work shown on it: what kind, how far along, and
+    // when it finished (so it can fade out afterwards).
+    job.lot.work = { type: job.type, progress: 0, doneAt: null };
     this.onEvent('started', job);
   }
 
@@ -193,7 +194,7 @@ export class Dispatcher {
     const job = this.active;
     job.workDone += dt;
     const progress = Math.min(1, job.workDone / job.est.workMin);
-    job.lot.mow = progress;
+    job.lot.work.progress = progress;
     if (progress >= 1) this.finishJob(job);
   }
 
@@ -201,8 +202,8 @@ export class Dispatcher {
     this.economy.money += job.pay;
     job.status = 'done';
     job.finishedAt = this.clock.minutes;
-    job.lot.mow = 1;
-    job.lot.mowDoneAt = this.clock.minutes;
+    job.lot.work.progress = 1;
+    job.lot.work.doneAt = this.clock.minutes;
     this.schedule = this.schedule.filter((j) => j !== job);
     this.history.unshift(job);
     this.history.length = Math.min(this.history.length, 10);
@@ -211,25 +212,45 @@ export class Dispatcher {
     this.onEvent('done', job);
   }
 
-  // Mown stripes stay for a while, then fade back to a plain lawn.
-  fadeLawns() {
+  // Finished work stays visible for a while, then fades back to a plain lot.
+  fadeWork() {
     for (const lot of this.world.lots) {
-      if (lot.mowDoneAt == null) continue;
-      const age = this.clock.minutes - lot.mowDoneAt;
-      if (age >= CONFIG.mowHoldMinutes + CONFIG.mowFadeMinutes) {
-        lot.mow = 0;
-        lot.mowDoneAt = null;
-      }
+      const w = lot.work;
+      if (!w || w.doneAt == null) continue;
+      if (this.clock.minutes - w.doneAt >= CONFIG.workHoldMinutes + CONFIG.workFadeMinutes) lot.work = null;
     }
   }
 
-  // 0..1 strength of the mown stripes on a lot (for drawing).
-  lawnAlpha(lot) {
-    if (!lot.mow) return 0;
-    if (lot.mowDoneAt == null) return 1;
-    const age = this.clock.minutes - lot.mowDoneAt;
-    if (age <= CONFIG.mowHoldMinutes) return 1;
-    return Math.max(0, 1 - (age - CONFIG.mowHoldMinutes) / CONFIG.mowFadeMinutes);
+  // 0..1 strength of the work drawn on a lot (for fading it out).
+  workAlpha(lot) {
+    const w = lot.work;
+    if (!w) return 0;
+    if (w.doneAt == null) return 1;
+    const age = this.clock.minutes - w.doneAt;
+    if (age <= CONFIG.workHoldMinutes) return 1;
+    return Math.max(0, 1 - (age - CONFIG.workHoldMinutes) / CONFIG.workFadeMinutes);
+  }
+
+  // ----- skipping idle time -----
+  // When the crew is home with nothing due, the player can fast-forward to the
+  // next job (or to quitting time if nothing else is scheduled today).
+  skipTarget() {
+    if (this.clock.shiftOver || !this.isIdleAtHome()) return null;
+    const now = this.clock.minutes;
+    const end = shiftEnd(this.clock.day);
+    const next = this.schedule[0];
+    if (next) {
+      const at = Math.min(next.start, end);
+      return at > now + 1 ? { minutes: at, job: next } : null;
+    }
+    return end > now + 1 ? { minutes: end, job: null } : null;
+  }
+
+  skipAhead() {
+    const target = this.skipTarget();
+    if (!target) return false;
+    this.clock.minutes = target.minutes;
+    return true;
   }
 
   // The manual end-of-day skip: next shift, fresh offers.

@@ -101,6 +101,7 @@ function createGame() {
   const panelTitle = $('panel-title');
   const panelBody = $('panel-body');
   const endDayBtn = $('btn-endday');
+  const skipBtn = $('btn-skip');
   const followBtn = $('btn-follow');
 
   const view = { cssW: 0, cssH: 0, dpr: 1, cam: null };
@@ -150,7 +151,7 @@ function createGame() {
   function crewLabel() {
     const job = dispatcher.active;
     if (clock.shiftOver) return 'Clocked out for the day';
-    if (dispatcher.state === 'working') return `Mowing ${job.lot.address} · ${Math.round(job.lot.mow * 100)}%`;
+    if (dispatcher.state === 'working') return `${job.type.verb} ${job.lot.address} · ${Math.round(job.lot.work.progress * 100)}%`;
     if (dispatcher.state === 'travelling') {
       return dispatcher.purpose === 'toJob' ? `Driving to ${job.lot.address}` : 'Heading home';
     }
@@ -178,6 +179,10 @@ function createGame() {
       const next = partsAt(clock.nextShiftMinutes());
       endDayBtn.textContent = `End Day → ${next.day} ${next.time}`;
     }
+    // Idle at home with nothing due: offer to fast-forward to what's next.
+    const skip = dispatcher.skipTarget();
+    skipBtn.hidden = !skip;
+    if (skip) skipBtn.textContent = skip.job ? `Skip to ${partsAt(skip.minutes).time}` : 'Skip to end of day';
   }
 
   // ----- panels (Jobs / Schedule) -----
@@ -220,7 +225,7 @@ function createGame() {
       return;
     }
     const statusText = (job) => {
-      if (job.status === 'working') return `Mowing ${Math.round(job.lot.mow * 100)}%`;
+      if (job.status === 'working') return `${job.type.verb} ${Math.round(job.lot.work.progress * 100)}%`;
       if (job.status === 'driving') return 'Driving';
       if (job.status === 'done') return `Paid ${formatMoneyFull(job.pay)}`;
       return 'Scheduled';
@@ -260,12 +265,17 @@ function createGame() {
       floaters.push({ x: payload.lot.x + payload.lot.w / 2, y: payload.lot.y + 0.5, text: `+${formatMoneyFull(payload.pay)}`, age: 0, life: 2.2 });
       setStatus(`Finished ${payload.lot.address}: ${formatMoneyFull(payload.pay)} earned.`);
     } else if (type === 'started') {
-      setStatus(`Mowing ${payload.lot.address}…`);
+      setStatus(`${payload.type.verb} ${payload.lot.address}…`);
     } else if (type === 'newDay') {
       setStatus('New day. Fresh job offers are in.');
     }
     if (type !== 'scheduled') renderPanel();
   };
+
+  skipBtn.addEventListener('click', () => {
+    if (dispatcher.skipAhead()) setStatus('Skipped ahead.');
+    refreshHud();
+  });
 
   endDayBtn.addEventListener('click', () => {
     dispatcher.endDay();
@@ -403,14 +413,14 @@ function createGame() {
       lastPanelRefresh = now;
       renderSchedule();
     }
-    const mowingLot = dispatcher.state === 'working' ? dispatcher.active.lot : null;
+    const activeLot = dispatcher.state === 'working' ? dispatcher.active.lot : null;
     render(ctx, {
       world,
       cam: view.cam,
       truck,
       selectedLot,
-      lawnAlpha: (lot) => dispatcher.lawnAlpha(lot),
-      mowingLot,
+      workAlpha: (lot) => dispatcher.workAlpha(lot),
+      activeLot,
       floaters,
       ...view,
     });

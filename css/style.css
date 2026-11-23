@@ -91,7 +91,7 @@ canvas#map:active { cursor: grabbing; }
 .chip.grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; background: transparent; color: var(--muted); text-align: right; }
 
 /* slide-up panel for Jobs and Schedule */
-.panel { position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%; overflow-y: auto; background: var(--panel); border-top: 1px solid rgba(255, 255, 255, 0.18); border-radius: 14px 14px 0 0; padding: 12px 12px 14px; box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35); }
+.panel { z-index: 2; position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%; overflow-y: auto; background: var(--panel); border-top: 1px solid rgba(255, 255, 255, 0.18); border-radius: 14px 14px 0 0; padding: 12px 12px 14px; box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35); }
 .panel h2 { margin: 0 0 8px; font-size: 1.05rem; }
 .empty { color: var(--muted); margin: 8px 0; }
 .card { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: var(--bg); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
@@ -159,3 +159,27 @@ dialog input {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* crew screen */
+.seg { display: flex; gap: 6px; margin-bottom: 10px; }
+.seg-btn { flex: 1; font: inherit; color: var(--text); background: var(--bg); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 10px; min-height: 40px; cursor: pointer; }
+.seg-btn[aria-pressed='true'] { background: var(--accent); border-color: var(--accent-2); color: #1b1206; font-weight: 700; }
+.person { align-items: flex-start; }
+.person-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip.level { background: rgba(255, 255, 255, 0.12); font-size: 0.78rem; padding: 1px 8px; }
+.chip.rarity { font-size: 0.75rem; padding: 1px 9px; font-weight: 700; }
+.chip.rarity.common { background: #4b5a63; }
+.chip.rarity.uncommon { background: #2f7a4a; }
+.chip.rarity.rare { background: #3a6fc4; }
+.chip.rarity.legendary { background: #c9871f; color: #1b1206; }
+.card.rarity-rare { border-color: #3a6fc4; }
+.card.rarity-legendary { border-color: #c9871f; box-shadow: 0 0 0 1px #c9871f inset; }
+.stats { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; }
+.stat { display: inline-flex; align-items: center; gap: 4px; background: rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 2px 7px; font-size: 0.82rem; }
+.stat-name { color: var(--muted); }
+.stat-plus { font: inherit; font-weight: 800; line-height: 1; min-width: 26px; min-height: 26px; border-radius: 7px; border: 0; background: var(--accent); color: #1b1206; cursor: pointer; }
+.offer { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.offer-wage { min-width: 4.4em; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.btn.small { min-height: 36px; min-width: 40px; padding: 0 10px; }
+.btn.danger { background: #b83a3a; border-color: #8f2a2a; color: #fff; }
+p.warn { margin: 6px 0; }

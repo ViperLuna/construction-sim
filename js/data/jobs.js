@@ -2,6 +2,8 @@
 // (see docs/DESIGN.md, section 8.2 and the appendix catalog).
 // `visual` picks how the work is drawn on the map (see render.js).
 // `weight` is how often the type shows up among the daily offers.
+// `crewScaling` is how much each extra person in the truck helps (1 for the
+// first, then less, since some jobs are mostly a one-person job).
 
 export const JOB_TYPES = {
   mow: {
@@ -14,6 +16,7 @@ export const JOB_TYPES = {
     payRange: [40, 60],
     payStep: 5,
     weight: 5,
+    crewScaling: [1, 0.4], // a second worker adds this much of their speed
     visual: 'stripes',
   },
   hedges: {
@@ -26,6 +29,7 @@ export const JOB_TYPES = {
     payRange: [35, 55],
     payStep: 5,
     weight: 3,
+    crewScaling: [1, 0.7],
     visual: 'hedges',
   },
   weeds: {
@@ -38,6 +42,7 @@ export const JOB_TYPES = {
     payRange: [55, 80],
     payStep: 5,
     weight: 2,
+    crewScaling: [1, 0.9],
     visual: 'weeds',
   },
 };

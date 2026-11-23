@@ -22,6 +22,14 @@ export const CONFIG = {
   workHoldMinutes: 45,
   workFadeMinutes: 45,
 
+  // Seats in the starting half-ton truck, and how many people the property
+  // can house to begin with (the owner included).
+  truckSeats: 2,
+  maxCrewSize: 4,
+
+  // A new hire needs this many days of their wages on hand (10-hour days).
+  hireCashDays: 3,
+
   // Speed multipliers offered by the HUD (0 = paused).
   speeds: [0, 1, 2, 4],
 };

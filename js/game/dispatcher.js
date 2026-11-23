@@ -6,6 +6,7 @@ import { JOB_TYPES } from '../data/jobs.js';
 import { findPath } from '../world/pathfind.js';
 import { mulberry32 } from '../util/rng.js';
 import { FUEL_GAL_PER_TILE, FUEL_PRICE } from './economy.js';
+import { Roster, generateApplicants, addXp, spendPoint, decideHire, cashNeededFor, efficiencyOf } from './crew.js';
 import { dayOf, shiftStart, shiftEnd, nextBusinessDay, addBusinessDays, businessDaysBetween, isBusinessDay, timeOfDay, SHIFT_END_MIN } from './clock.js';
 
 const BUFFER = 1.2; // extra time added to every scheduled block
@@ -31,12 +32,13 @@ const LATE_PENALTY_PER_DAY = 0.1;
 const LATE_PENALTY_CAP = 0.5;
 
 export class Dispatcher {
-  constructor({ world, truck, clock, economy, crew }) {
+  constructor({ world, truck, clock, economy, roster }) {
     this.world = world;
     this.truck = truck;
     this.clock = clock;
     this.economy = economy;
-    this.crew = crew; // { name, stats: { speed, quality, ... } }
+    this.roster = roster || new Roster(); // the owner, plus anyone hired
+    this.applicants = [];
     this.offers = [];
     this.schedule = []; // jobs not yet finished, in start order
     this.history = []; // finished jobs, newest first
@@ -52,9 +54,13 @@ export class Dispatcher {
     return this.world.property.homeNode;
   }
 
-  // Average worker (speed 5) = 1.0. Better workers finish faster.
-  get efficiency() {
-    return 0.5 + 0.1 * this.crew.stats.speed;
+  // How fast the crew in the truck gets a job done, as a multiple of one average
+  // worker. The best worker counts fully; each extra person helps by the job's
+  // crewScaling (a second person helps a lot on weeding, less on mowing).
+  rateFor(type) {
+    const scaling = type.crewScaling || [1];
+    const rates = this.roster.seated.map(efficiencyOf).sort((a, b) => b - a);
+    return rates.reduce((sum, r, i) => sum + r * (scaling[i] ?? 0), 0);
   }
 
   // ----- offers -----
@@ -89,7 +95,13 @@ export class Dispatcher {
       offers.push(offer);
     }
     this.offers = offers;
+    this.applicants = generateApplicants(day);
     this.onEvent('offers', offers);
+  }
+
+  // Stats or crew changed: today's offers should show the new times.
+  refreshEstimates() {
+    for (const o of this.offers) o.est = this.estimate(o);
   }
 
   // Time and fuel for a job, worked out from the actual road distance.
@@ -97,7 +109,7 @@ export class Dispatcher {
     const route = findPath(this.world, this.homeNode, offer.lot.accessNode);
     const tiles = route ? route.distance : 0;
     const driveMin = tiles / CONFIG.truckTilesPerGameMinute;
-    const workMin = Math.ceil(offer.type.baseMinutes / this.efficiency);
+    const workMin = Math.ceil(offer.type.baseMinutes / this.rateFor(offer.type));
     const blockMin = Math.ceil((2 * driveMin + workMin) * BUFFER);
     const fuelGal = 2 * tiles * FUEL_GAL_PER_TILE;
     const fuelCost = Math.round(fuelGal * FUEL_PRICE);
@@ -234,6 +246,9 @@ export class Dispatcher {
   tickWork(dt) {
     const job = this.active;
     job.workDone += dt;
+    for (const m of this.roster.seated) {
+      if (addXp(m, dt)) this.onEvent('levelUp', m);
+    }
     const progress = Math.min(1, job.workDone / job.est.workMin);
     job.lot.work.progress = progress;
     if (progress >= 1) this.finishJob(job);
@@ -297,10 +312,53 @@ export class Dispatcher {
     return true;
   }
 
-  // The manual end-of-day skip: next shift, fresh offers.
+  // ----- people -----
+  // Try to hire an applicant at a wage. Returns { ok, reason }.
+  hire(applicantId, wage) {
+    const a = this.applicants.find((x) => x.id === applicantId);
+    if (!a) return { ok: false, reason: 'gone' };
+    if (this.roster.isFull) return { ok: false, reason: 'full' };
+    if (this.economy.money < cashNeededFor(wage)) return { ok: false, reason: 'cash' };
+    if (!decideHire(a, wage)) return { ok: false, reason: 'declined' };
+    this.applicants = this.applicants.filter((x) => x !== a);
+    const member = this.roster.hire(a, wage, this.clock.minutes);
+    this.refreshEstimates();
+    this.onEvent('crew', member);
+    return { ok: true, member };
+  }
+
+  fire(memberId) {
+    const ok = this.roster.fire(memberId);
+    if (ok) {
+      this.refreshEstimates();
+      this.onEvent('crew', null);
+    }
+    return ok;
+  }
+
+  spend(memberId, stat) {
+    const m = this.roster.members.find((x) => x.id === memberId);
+    if (!m || !spendPoint(m, stat)) return false;
+    this.refreshEstimates();
+    this.onEvent('crew', m);
+    return true;
+  }
+
+  // Everyone is paid at the end of the day; the owner isn't. Money can go
+  // negative (that's what the loans and the countdown are for, later).
+  payDay() {
+    const pay = this.roster.payDay(this.clock.day, this.clock.minutes);
+    this.economy.money -= pay.total;
+    return pay;
+  }
+
+  // The manual end-of-day skip: pay the crew, then on to the next shift with
+  // fresh offers and a fresh pool of applicants.
   endDay() {
+    const payroll = this.payDay();
     this.clock.endDay();
     this.generateOffers();
     this.onEvent('newDay', this.clock.day);
+    return payroll;
   }
 }

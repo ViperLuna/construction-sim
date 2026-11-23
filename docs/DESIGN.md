@@ -231,6 +231,9 @@ State St ------------+----+----+----+----+----+----+-----------
 - **[LOCKED]** The player can **offer a different wage**, and the applicant accepts or declines. Offering **at or above** the ask **guarantees acceptance**.
 - **[PROPOSED]** Offering **less** may be declined, depending on how far below. Applicants may leave the pool at the end of the day.
 - **[PROPOSED]** Wage range: **$12/hour** at the bottom up to about **$40-60/hour** for the rarest applicants.
+- **[BUILT]** The daily pool has **four applicants**: always one **common** and one **uncommon**, plus two that can be anything (about 55% common, 28% uncommon, 14% rare, 3% legendary). Typical asks: common $12-18, uncommon $14-29, rare $26-46, legendary $37-57. The pool changes every morning.
+- **[BUILT]** To take someone on you need **3 days of their wages on hand** (10-hour days), so the best applicants are locked until you can afford them. Offers: at or above the ask is a sure yes, **below 80% of the ask is a no**, in between is a fixed maybe (the same offer always gets the same answer, so there's no re-rolling).
+- **[BUILT]** The property holds **4 people** (owner included). A new hire rides in the truck if there's a seat (the half-ton has 2); the rest wait at the property until there are more vehicles and crews. **Level-ups** (XP from working minutes) give 2 points, plus 1 at levels 5, 10, 15, and stats cap at 10.
 
 ### 6.5 Raises, quitting and insurance
 - **[LOCKED]** **Raise requests:** when a worker levels up or hits a milestone, they ask for a raise. The player accepts or declines. Declining lowers morale.

@@ -308,3 +308,151 @@ test('queues can run long: no cap on jobs, only on whether each one fits its win
     assert.equal(job.paid, job.pay);
   }
 });
+
+// ---------------------------------------------------------------- crew & hiring
+import { generateApplicants, decideHire, acceptChance, addXp, spendPoint, xpToNext, cashNeededFor, Roster, createOwner, averageStat } from '../js/game/crew.js';
+import { JOB_TYPES } from '../js/data/jobs.js';
+
+test('every day has a pool of four: always a common and an uncommon, rarer ones now and then', () => {
+  const seen = new Set();
+  for (let day = 0; day < 200; day++) {
+    const pool = generateApplicants(day);
+    assert.equal(pool.length, 4);
+    assert.equal(new Set(pool.map((a) => a.name)).size, 4, 'no duplicate names');
+    assert.ok(pool.some((a) => a.rarity === 'common'));
+    assert.ok(pool.some((a) => a.rarity === 'uncommon'));
+    for (const a of pool) {
+      seen.add(a.rarity);
+      assert.ok(a.ask >= 12 && a.ask <= 60, `ask ${a.ask}`);
+      for (const v of Object.values(a.stats)) assert.ok(v >= 1 && v <= 10);
+    }
+    assert.deepEqual(generateApplicants(day), pool, 'the same day always gives the same pool');
+  }
+  assert.deepEqual([...seen].sort(), ['common', 'legendary', 'rare', 'uncommon']);
+});
+
+test('better applicants ask for more', () => {
+  const avgAsk = (rarity) => {
+    const asks = [];
+    for (let day = 0; day < 400; day++) for (const a of generateApplicants(day)) if (a.rarity === rarity) asks.push(a.ask);
+    return asks.reduce((x, y) => x + y, 0) / asks.length;
+  };
+  assert.ok(avgAsk('common') < avgAsk('uncommon'));
+  assert.ok(avgAsk('uncommon') < avgAsk('rare'));
+  assert.ok(avgAsk('rare') < avgAsk('legendary'));
+  assert.ok(avgAsk('common') < 14, 'commons start near $12');
+});
+
+test('wage offers: at or above the ask always works, far below never, in between is a fixed maybe', () => {
+  const a = { id: 'x1', ask: 20 };
+  assert.equal(acceptChance(a, 20), 1);
+  assert.equal(acceptChance(a, 25), 1);
+  assert.equal(acceptChance(a, 15), 0);
+  assert.ok(decideHire(a, 20) && decideHire(a, 30));
+  assert.ok(!decideHire(a, 15));
+  assert.ok(Math.abs(acceptChance(a, 18) - 0.5) < 1e-9);
+  assert.equal(decideHire(a, 18), decideHire(a, 18), 'same offer, same answer: no re-rolling');
+});
+
+test('hiring: cash on hand matters, then the new hire rides in the truck and speeds up work', () => {
+  const ctx = setup();
+  const { dispatcher, economy, world } = ctx;
+  const pool = dispatcher.applicants;
+  const expensive = { ...pool[1], id: 'rich', ask: 19 };
+  dispatcher.applicants.push(expensive);
+  assert.equal(economy.money, 500);
+  assert.equal(cashNeededFor(19), 570);
+  assert.deepEqual(dispatcher.hire('rich', 19), { ok: false, reason: 'cash' }, "can't afford someone that pricey yet");
+
+  const weeds = JOB_TYPES.weeds;
+  const mow = JOB_TYPES.mow;
+  const aloneWeeds = dispatcher.rateFor(weeds);
+  const aloneMow = dispatcher.rateFor(mow);
+
+  const common = pool[0];
+  const result = dispatcher.hire(common.id, common.ask);
+  assert.ok(result.ok);
+  assert.equal(dispatcher.roster.employees.length, 1);
+  assert.ok(!dispatcher.applicants.includes(common), 'they leave the pool');
+  assert.ok(dispatcher.roster.isSeated(result.member), 'a seat in the truck');
+  const gainWeeds = dispatcher.rateFor(weeds) / aloneWeeds;
+  const gainMow = dispatcher.rateFor(mow) / aloneMow;
+  assert.ok(gainWeeds > gainMow, 'a second person helps more with weeding than with mowing');
+  assert.ok(gainWeeds > 1 && gainMow > 1);
+});
+
+test('hiring: a declined offer can be raised; the property fills up at four', () => {
+  const ctx = setup();
+  const { dispatcher } = ctx;
+  const a = dispatcher.applicants[0];
+  assert.deepEqual(dispatcher.hire(a.id, a.ask - 5), { ok: false, reason: 'declined' });
+  assert.ok(dispatcher.hire(a.id, a.ask).ok);
+  ctx.economy.money = 10000;
+  const rest = dispatcher.applicants.slice(0, 2);
+  for (const b of rest) assert.ok(dispatcher.hire(b.id, b.ask + 20).ok);
+  assert.equal(dispatcher.roster.members.length, 4);
+  dispatcher.applicants.push({ ...a, id: 'extra', ask: 12 });
+  assert.deepEqual(dispatcher.hire('extra', 12), { ok: false, reason: 'full' });
+});
+
+test('payroll: paid for the hours on the clock at End Day, nothing for the owner', () => {
+  const ctx = setup();
+  const { dispatcher, economy, clock } = ctx;
+  const a = dispatcher.applicants[0];
+  dispatcher.hire(a.id, 12);
+  const wage = 12;
+  run(ctx, () => clock.shiftOver); // a full 7 AM to 5 PM day with no work booked
+  const before = economy.money;
+  const pay = dispatcher.endDay();
+  assert.equal(pay.total, 10 * wage);
+  assert.equal(economy.money, before - 10 * wage);
+  assert.equal(pay.lines.length, 1, 'the owner is not on the payroll');
+});
+
+test('payroll: hired mid-day only paid from then; capped at 12 hours; weekends and no-employee days cost nothing', () => {
+  const roster = new Roster();
+  const hired = roster.hire({ id: 'h', name: 'Test Hire', stats: createOwner().stats, level: 1, xp: 0, points: 0 }, 20, 300); // 12:00 PM Monday
+  assert.equal(hired.wage, 20);
+  const half = roster.payDay(0, 600); // paid until 5 PM: 5 hours
+  assert.equal(half.total, 100);
+  const capped = roster.payDay(1, 1440 + 900); // 15 hours on the clock
+  assert.equal(capped.lines[0].hours, 12);
+  assert.equal(capped.total, 240);
+  assert.equal(roster.payDay(5, 5 * 1440 + 600).total, 0, 'Saturday is not a working day');
+  roster.fire('h');
+  assert.equal(roster.payDay(2, 2 * 1440 + 600).total, 0);
+  assert.equal(new Roster().payDay(0, 600).total, 0, 'the owner alone costs nothing');
+});
+
+test('levels: XP from working gives 2 points a level, a bonus at level 5, and stats max out at 10', () => {
+  const m = createOwner();
+  assert.equal(addXp(m, xpToNext(1)), 1);
+  assert.equal(m.level, 2);
+  assert.equal(m.points, 2);
+  m.level = 4;
+  m.xp = 0;
+  m.points = 0;
+  addXp(m, xpToNext(4));
+  assert.equal(m.level, 5);
+  assert.equal(m.points, 3, 'milestone level gives a bonus point');
+  m.points = 5;
+  m.stats.speed = 9;
+  assert.ok(spendPoint(m, 'speed'));
+  assert.equal(m.stats.speed, 10);
+  assert.ok(!spendPoint(m, 'speed'), 'cannot go past 10');
+  assert.equal(m.points, 4);
+  assert.ok(!spendPoint(m, 'nonsense'));
+});
+
+test('working earns the crew XP, and spending points makes them faster', () => {
+  const ctx = setup();
+  const { dispatcher } = ctx;
+  take(dispatcher);
+  run(ctx, () => dispatcher.history.length === 1);
+  const owner = dispatcher.roster.owner;
+  assert.ok(owner.xp > 0 || owner.level > 1, 'XP was earned');
+  owner.points = 1;
+  const before = dispatcher.rateFor(JOB_TYPES.mow);
+  assert.ok(dispatcher.spend('owner', 'speed'));
+  assert.ok(dispatcher.rateFor(JOB_TYPES.mow) > before);
+});

@@ -6,6 +6,7 @@ import { Truck } from './game/truck.js';
 import { Clock, partsAt, dayOf } from './game/clock.js';
 import { createEconomy, formatMoneyShort, formatMoneyFull } from './game/economy.js';
 import { Dispatcher } from './game/dispatcher.js';
+import { STAT_KEYS, STAT_SHORT, STAT_LABELS, MAX_STAT, RARITIES, xpToNext, cashNeededFor, acceptChance } from './game/crew.js';
 import { createCamera, render, screenToWorld } from './game/render.js';
 
 const $ = (id) => document.getElementById(id);
@@ -90,9 +91,8 @@ function createGame() {
   const clock = new Clock();
   const truck = new Truck(world, world.property.homeNode);
   const economy = createEconomy();
-  // The owner, working alone for now. Stats are 1-10 (see docs/DESIGN.md, 6.3).
-  const crew = { name: 'You', stats: { speed: 7, quality: 8 } };
-  const dispatcher = new Dispatcher({ world, truck, clock, economy, crew });
+  const dispatcher = new Dispatcher({ world, truck, clock, economy });
+  const roster = dispatcher.roster; // the owner, plus anyone hired
 
   const canvas = $('map');
   const ctx = canvas.getContext('2d');
@@ -112,6 +112,10 @@ function createGame() {
   let running = false;
   let lastFrame = 0;
   let lastPanelRefresh = 0;
+  let crewView = 'roster'; // 'roster' | 'hiring'
+  let confirmFireId = null;
+  const offerWage = new Map(); // applicant id -> the wage typed in so far
+  let hireMessage = '';
 
   const setStatus = (text) => {
     statusEl.textContent = text;
@@ -174,6 +178,10 @@ function createGame() {
     $('hud-fuel').textContent = `⛽ ${Math.round(economy.fuelGal)} gal`;
     $('hud-crew').textContent = crewLabel();
     $('jobs-badge').textContent = String(dispatcher.offers.length);
+    const points = roster.members.reduce((sum, m) => sum + m.points, 0);
+    const crewBadge = $('crew-badge');
+    crewBadge.hidden = points === 0;
+    crewBadge.textContent = String(points);
     endDayBtn.hidden = !clock.shiftOver;
     if (clock.shiftOver) {
       const next = partsAt(clock.nextShiftMinutes());
@@ -256,9 +264,140 @@ function createGame() {
     }
   }
 
+  // ----- Crew screen -----
+  function statRow(member, canSpend) {
+    const row = el('div', 'stats');
+    for (const key of STAT_KEYS) {
+      const cell = el('span', 'stat');
+      cell.title = STAT_LABELS[key];
+      cell.append(el('span', 'stat-name', STAT_SHORT[key]), el('b', '', String(member.stats[key])));
+      if (canSpend && member.points > 0 && member.stats[key] < MAX_STAT) {
+        const plus = el('button', 'stat-plus', '+');
+        plus.type = 'button';
+        plus.setAttribute('aria-label', `Add a point to ${STAT_LABELS[key]}`);
+        plus.addEventListener('click', () => {
+          dispatcher.spend(member.id, key);
+          renderPanel();
+        });
+        cell.append(plus);
+      }
+      row.append(cell);
+    }
+    return row;
+  }
+
+  function renderRoster() {
+    panelBody.append(
+      el('p', 'muted', roster.employees.length
+        ? `Payroll: about ${formatMoneyFull(roster.dailyCost)} for a full 10-hour day, paid when you End Day. You're never paid, and you have no living costs.`
+        : "It's just you. You work for free, and your income is whatever the jobs leave over."),
+    );
+    for (const m of roster.members) {
+      const card = el('article', 'card person');
+      const main = el('div', 'card-main');
+      const head = el('div', 'person-head');
+      head.append(el('strong', '', m.isOwner ? 'You (Owner)' : m.name), el('span', 'chip level', `Lv ${m.level}`));
+      main.append(head);
+      const seat = roster.isSeated(m) ? 'Rides in the truck' : 'No seat in the truck yet (waits at the property)';
+      main.append(el('div', 'muted', `${m.isOwner ? 'No pay' : `${formatMoneyFull(m.wage)}/hour`} · ${seat}`));
+      main.append(el('div', 'muted', `XP ${Math.floor(m.xp)}/${xpToNext(m.level)}${m.points ? ` · ${m.points} point${m.points > 1 ? 's' : ''} to spend` : ''}`));
+      main.append(statRow(m, true));
+      card.append(main);
+      if (!m.isOwner) {
+        const armed = confirmFireId === m.id;
+        const fire = el('button', armed ? 'btn danger' : 'btn', armed ? 'Sure?' : 'Fire');
+        fire.type = 'button';
+        fire.addEventListener('click', () => {
+          if (!armed) confirmFireId = m.id;
+          else {
+            dispatcher.fire(m.id);
+            confirmFireId = null;
+            setStatus(`${m.name} is gone.`);
+          }
+          renderPanel();
+          refreshHud();
+        });
+        card.append(fire);
+      }
+      panelBody.append(card);
+    }
+    if (!roster.isFull) panelBody.append(el('p', 'muted', 'Open the Hiring tab to find people.'));
+  }
+
+  function renderHiring() {
+    panelBody.append(
+      el('p', 'muted', `New faces every morning. Pay is at or above the asking wage, or they might say no. You need ${CONFIG.hireCashDays} days of their wages on hand. ${roster.members.length}/${CONFIG.maxCrewSize} people on the property.`),
+    );
+    if (hireMessage) panelBody.append(el('p', 'warn', hireMessage));
+    if (!dispatcher.applicants.length) panelBody.append(el('p', 'empty', 'Nobody else is looking today.'));
+    for (const a of dispatcher.applicants) {
+      const wage = offerWage.get(a.id) ?? a.ask;
+      const rarity = RARITIES.find((r) => r.id === a.rarity);
+      const card = el('article', `card person rarity-${a.rarity}`);
+      const main = el('div', 'card-main');
+      const head = el('div', 'person-head');
+      head.append(el('strong', '', a.name), el('span', `chip rarity ${a.rarity}`, rarity.label));
+      main.append(head);
+      main.append(el('div', 'muted', `Asking ${formatMoneyFull(a.ask)}/hour`));
+      main.append(statRow(a, false));
+
+      const need = cashNeededFor(wage);
+      const cashOk = economy.money >= need;
+      const full = roster.isFull;
+      const chance = acceptChance(a, wage);
+      const controls = el('div', 'offer');
+      const minus = el('button', 'btn small', '−');
+      const plus = el('button', 'btn small', '+');
+      minus.type = plus.type = 'button';
+      minus.setAttribute('aria-label', 'Offer less');
+      plus.setAttribute('aria-label', 'Offer more');
+      minus.addEventListener('click', () => { offerWage.set(a.id, Math.max(1, wage - 1)); hireMessage = ''; renderPanel(); });
+      plus.addEventListener('click', () => { offerWage.set(a.id, wage + 1); hireMessage = ''; renderPanel(); });
+      controls.append(minus, el('span', 'offer-wage', `${formatMoneyFull(wage)}/h`), plus);
+      main.append(controls);
+      if (!cashOk) main.append(el('div', 'muted warn', `Locked: you need ${formatMoneyFull(need)} on hand (you have ${formatMoneyFull(economy.money)}).`));
+      else if (full) main.append(el('div', 'muted warn', 'The property is full.'));
+      else if (chance < 1) main.append(el('div', 'muted warn', chance === 0 ? 'Too low. They will turn this down.' : 'Below their ask: they might say no.'));
+
+      const hire = el('button', cashOk && !full ? 'btn primary' : 'btn', 'Hire');
+      hire.type = 'button';
+      hire.disabled = !cashOk || full;
+      hire.addEventListener('click', () => {
+        const result = dispatcher.hire(a.id, wage);
+        if (result.ok) {
+          hireMessage = '';
+          setStatus(`Hired ${a.name} at ${formatMoneyFull(wage)}/hour.`);
+        } else if (result.reason === 'declined') {
+          hireMessage = `${a.name} turned down ${formatMoneyFull(wage)}/hour. Try a little more.`;
+        }
+        renderPanel();
+        refreshHud();
+      });
+      card.append(main, hire);
+      panelBody.append(card);
+    }
+  }
+
+  function renderCrew() {
+    panelTitle.textContent = 'Crew';
+    panelBody.replaceChildren();
+    const seg = el('div', 'seg');
+    for (const [id, label] of [['roster', `Roster (${roster.members.length})`], ['hiring', 'Hiring']]) {
+      const b = el('button', 'seg-btn', label);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(crewView === id));
+      b.addEventListener('click', () => { crewView = id; confirmFireId = null; renderPanel(); });
+      seg.append(b);
+    }
+    panelBody.append(seg);
+    if (crewView === 'roster') renderRoster();
+    else renderHiring();
+  }
+
   function renderPanel() {
     if (tab === 'jobs') renderJobs();
     else if (tab === 'schedule') renderSchedule();
+    else if (tab === 'crew') renderCrew();
   }
 
   function setTab(next) {
@@ -278,7 +417,9 @@ function createGame() {
     } else if (type === 'started') {
       setStatus(`${payload.type.verb} ${payload.lot.address}…`);
     } else if (type === 'newDay') {
-      setStatus('New day. Fresh job offers are in.');
+      hireMessage = '';
+    } else if (type === 'levelUp') {
+      setStatus(`${payload.isOwner ? 'You' : payload.name} reached level ${payload.level}. Open Crew to spend points.`);
     }
     if (type !== 'scheduled') renderPanel();
   };
@@ -289,8 +430,13 @@ function createGame() {
   });
 
   endDayBtn.addEventListener('click', () => {
-    dispatcher.endDay();
+    const payroll = dispatcher.endDay();
     follow = true;
+    setStatus(
+      payroll.total
+        ? `Payday: ${payroll.lines.length} employee${payroll.lines.length > 1 ? 's' : ''}, ${formatMoneyFull(payroll.total)}. New day, fresh offers.`
+        : 'New day. Fresh job offers are in.',
+    );
     refreshHud();
     renderPanel();
   });

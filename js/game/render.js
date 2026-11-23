@@ -58,6 +58,36 @@ function rect(ctx, x, y, w, h, fill) {
   ctx.fillRect(x, y, w, h);
 }
 
+// Text is always laid out at a large, normal font size and then scaled down to
+// the size we want in tiles. Asking the browser for a sub-pixel font (like
+// "0.8px") makes some browsers round the letter spacing badly, which smears the
+// letters together once the map is zoomed in.
+const TEXT_BASE = 48;
+
+function drawText(ctx, text, x, y, size, opts = {}) {
+  const { fill, stroke, strokeWidth = 0, bold = false, align = 'center', rotate = 0, alpha = 1 } = opts;
+  const k = size / TEXT_BASE;
+  ctx.save();
+  ctx.translate(x, y);
+  if (rotate) ctx.rotate(rotate);
+  ctx.scale(k, k);
+  ctx.globalAlpha *= alpha;
+  ctx.font = `${bold ? 'bold ' : ''}${TEXT_BASE}px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  if (stroke) {
+    ctx.lineWidth = strokeWidth / k;
+    ctx.strokeStyle = stroke;
+    ctx.strokeText(text, 0, 0);
+  }
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fillText(text, 0, 0);
+  }
+  ctx.restore();
+}
+
 function drawTree(ctx, t) {
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
   ctx.beginPath();
@@ -309,18 +339,12 @@ function drawLot(ctx, lot, selected, showNumbers, zoom, workAlpha, working) {
   if (showNumbers) {
     // The number sits on its own building, so it's never confused with the
     // lot behind it (which belongs to the next street over).
-    ctx.font = 'bold 0.8px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 0.16;
-    ctx.strokeStyle = 'rgba(20,28,32,0.85)';
-    ctx.fillStyle = '#ffffff';
-    const tx = hx + houseW / 2;
-    const ty = hy + houseH / 2;
-    ctx.strokeText(String(lot.number), tx, ty);
-    ctx.fillText(String(lot.number), tx, ty);
-    ctx.textBaseline = 'alphabetic';
+    drawText(ctx, String(lot.number), hx + houseW / 2, hy + houseH / 2, 0.8, {
+      bold: true,
+      fill: '#ffffff',
+      stroke: 'rgba(20,28,32,0.85)',
+      strokeWidth: 0.16,
+    });
   }
 }
 
@@ -360,31 +384,21 @@ function drawProperty(ctx, world, zoom) {
   ctx.setLineDash([]);
 
   if (zoom > 6) {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.font = '0.8px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Your Property', p.x + 0.8, p.y + 1.1);
+    drawText(ctx, 'Your Property', p.x + 0.8, p.y + 1.1, 0.8, { fill: 'rgba(0,0,0,0.6)', align: 'left' });
   }
 }
 
 function drawStreetLabels(ctx, world, zoom) {
   const size = Math.min(1.15, Math.max(0.6, 11 / zoom));
-  ctx.font = `bold ${size}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  // A road-coloured outline hides the centre-line dashes behind the lettering.
+  const style = { bold: true, fill: 'rgba(255,255,255,0.95)', stroke: COLORS.road, strokeWidth: size * 0.3 };
   for (const r of world.roads) {
     if (r.y1 === r.y2) {
-      for (const x of [20, 44]) ctx.fillText(r.name, x, r.y1);
+      for (const x of [20, 44]) drawText(ctx, r.name, x, r.y1, size, style);
     } else {
-      ctx.save();
-      ctx.translate(r.x1, 28);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillText(r.name, 0, 0);
-      ctx.restore();
+      drawText(ctx, r.name, r.x1, 28, size, { ...style, rotate: -Math.PI / 2 });
     }
   }
-  ctx.textBaseline = 'alphabetic';
 }
 
 function drawTruck(ctx, truck, zoom) {
@@ -407,22 +421,16 @@ function drawTruck(ctx, truck, zoom) {
 // "+$45" style text that rises and fades above a finished job.
 function drawFloaters(ctx, floaters, zoom) {
   const size = Math.max(0.9, 15 / zoom);
-  ctx.font = `bold ${size}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineJoin = 'round';
   for (const f of floaters) {
     const t = f.age / f.life;
-    ctx.globalAlpha = Math.max(0, 1 - t * t);
-    const y = f.y - t * 2.5;
-    ctx.lineWidth = size * 0.22;
-    ctx.strokeStyle = 'rgba(15,30,20,0.9)';
-    ctx.strokeText(f.text, f.x, y);
-    ctx.fillStyle = '#7dff9a';
-    ctx.fillText(f.text, f.x, y);
+    drawText(ctx, f.text, f.x, f.y - t * 2.5, size, {
+      bold: true,
+      fill: '#7dff9a',
+      stroke: 'rgba(15,30,20,0.9)',
+      strokeWidth: size * 0.22,
+      alpha: Math.max(0, 1 - t * t),
+    });
   }
-  ctx.globalAlpha = 1;
-  ctx.textBaseline = 'alphabetic';
 }
 
 export function render(ctx, state) {

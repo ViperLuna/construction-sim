@@ -39,6 +39,7 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[LOCKED]** Real street names and real addresses. Every job goes to an actual address on the map.
 - **[LOCKED]** Supply locations are real places the crew can drive to, such as a lumber yard and a stone/landscape supply yard.
 - **[LOCKED]** The map includes a **baseball field** as a landscaping job site (a flagship late-early-game job: infield dirt, grass, bases, fencing).
+- **[LOCKED]** **Street naming:** plain, familiar, "every town has one" names (Main St., Prospect, State, Market, Exchange, Oakwood, and so on), plus numbered parallel streets (1st, 2nd, 3rd...). No silly or hard-to-remember names. Street names **never change**, so players learn the town over time.
 - **[PROPOSED]** Target roughly 100-150 addressable lots at launch.
 - **[PROPOSED]** The map is hand-designed but stored as data (grid/tiles plus a road graph), so it can expand later.
 - **[PROPOSED]** Trucks pathfind along the road graph. Drive time is derived from route distance and truck speed.

@@ -129,7 +129,7 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[LOCKED]** The property has a **fuel pump with a reservoir**, which **starts full**.
 - **[LOCKED]** There is **one fuel type**. Everything that burns fuel uses the same liquid. No gasoline/diesel distinction.
 - **[LOCKED]** **Price is a flat $3.00 per gallon.**
-- **[LOCKED]** Fuel is **ordered**, and delivery takes **one business day**. **Nothing is delivered on weekends**, so anyone working Saturday or Sunday has to watch their fuel and order ahead.
+- **[LOCKED]** Fuel is **ordered**, and delivery takes **one business day**. **All deliveries (fuel, materials, rentals) happen Monday to Friday only**, nothing on weekends, so anyone working Saturday or Sunday has to watch their fuel and order ahead.
 - **[PROPOSED]** Reservoir capacity: **500 gallons** at the start. Real farm and small-business tanks are commonly 250-1,000 gallons. Upgradeable later. **[OPEN to confirm]**
 - **[PROPOSED]** The truck burns fuel by distance driven (starting around 14-16 mpg for a slow half-ton). Equipment burns fuel per hour of use.
 - **[PROPOSED]** A truck also has its own tank, refilled from the property pump. Running a truck dry strands the crew.
@@ -186,7 +186,19 @@ When viewing an offer, the player sees **offered pay against estimated cost**:
 - **[PROPOSED]** A **dump fee** per load is a job cost shown on the job board.
 - **[PROPOSED]** A truck can carry a **limited number of loads**. An undumped load stays on the truck and **blocks further haul jobs** until it's dumped.
 - **[PROPOSED]** Location: the **east or southeast edge** of the map, out past the farms.
+- **[LOCKED]** **Larger jobs can require multiple dump trips.** A haul job has a **number of loads**, and each load adds a dump trip with its own drive time, dump time and fee.
 - **[OPEN]** Dump fee amount, opening hours (if any), and whether the dump trip must happen the same day.
+
+### 9.4c Materials: Delivery or Pickup
+- **[LOCKED]** Materials (lumber, mulch, stone, seed, sod, and so on) can be obtained **two ways**:
+  1. **Delivery:** ordered, then **dropped off at the customer's property on the scheduled work date**. It **costs more** (a delivery fee).
+  2. **Pickup:** the crew **drives to the store** and picks it up. It costs **material cost only**.
+- **[LOCKED]** At any time, a crew with an **available empty truck** can go **pick up materials**. The materials **stay in the truck** until used.
+- **[LOCKED]** **All deliveries happen Monday to Friday only** (materials, fuel, rentals). To get sod on a Saturday, the crew has to pick it up.
+- **[PROPOSED]** Delivery must be **ordered at least one business day ahead**. The scheduler **warns** the player if a job's materials can't arrive in time.
+- **[PROPOSED]** Supply stores may stay open **on Saturdays** (shorter hours) even though they don't deliver.
+- **[PROPOSED]** Vehicles have a **cargo capacity**, which limits how many materials (and junk loads) they carry at once.
+- **[OPEN]** Delivery fee (flat or a percentage), store hours, and cargo capacity numbers.
 
 ### 9.5 Visual Build Sequence
 - **[LOCKED]** Work is **displayed on the map**. Pieces appear a little at a time as the job progresses.
@@ -307,6 +319,9 @@ Nothing gets coded until the design settles. When it does, build in small, playa
 - **[LOCKED]** **Civic buildings:** school, library, police station, fire station, hospital (just a larger building, not a whole district), and town hall.
 - **[LOCKED]** **Neighborhood variety:** one neighborhood is a **more upper-middle-class area with curves and cul-de-sacs**. Layout freedom (including a diagonal road here or there) goes to the designer, as long as roads and traffic work.
 - **[PROPOSED]** Layout: named streets run east-west (Oakwood, Prospect, Main, Market, Exchange, State), numbered Avenues run north-south (1st-6th). A railroad runs east-west between Market and Exchange, crossing at 2nd, 4th and 6th Ave. A creek runs along the west side with a bridge on State St. Neighborhood A (grid, working class) is in the northwest, Neighborhood B (curvy, upper middle) in the northeast, park/ballfield in the middle, downtown in the center, the business area (lumber yard, stone yard, hardware, fuel depot) south of the tracks, and farms around the edges. Cemetery by the north farmland. Hospital on the east side. **The dump** is on the east/southeast edge (see 9.4b).
+- **[LOCKED]** **Garden center farm:** one of the farms has a **home and garden center** selling seeds, plants, sod and artificial turf. Other farms are scenery and job sites.
+- **[LOCKED]** **Bank:** exists as a **building on the map**, but **all banking is done instantly in the menu** (no driving). The bank building can also be a **commercial landscaping or snow customer**.
+- **[LOCKED]** **Rental company:** no map location. Rentals are **delivered** (see 7).
 
 ## 15. Recurring Customers
 

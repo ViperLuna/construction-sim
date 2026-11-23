@@ -232,6 +232,43 @@ Nothing gets coded until the design settles. When it does, build in small, playa
 
 ---
 
+## 18. Traffic and Map Scale
+
+### 18.1 Abstract map scale
+- **[LOCKED]** The map is **not** scaled to real-world distances. Truck speed (tiles per second) is tuned for **how it looks**, and drive time is derived from route length and speed.
+- **[LOCKED]** Normal pace stays **60 real seconds per game hour**.
+- **[PROPOSED]** Typical trips take **10-30 game minutes** (about 10-30 real seconds), and farm trips are longer (about 30-45 real seconds). Fast-forward is available for boring drives.
+- **[PROPOSED]** Fuel is burned **per tile driven** (a "game mile" is a fixed number of tiles).
+
+### 18.2 AI traffic
+- **[LOCKED]** The town has **random AI traffic** alongside the player's trucks.
+- **[LOCKED]** **Everyone obeys traffic laws**: speed limits, **stop signs, traffic lights**, right of way, and keeping distance from the car ahead. Vehicles do **not** drive through each other.
+- **[LOCKED]** **Density:** downtown is busiest, residential is lighter, rural is lightest.
+- **[LOCKED]** **Rush hour** brings heavier traffic toward downtown.
+- **[LOCKED]** **AI cars appear and disappear at driveways and parking lots** (fade in, drive to a destination, park, fade out). No cars phasing through buildings.
+- **[LOCKED]** Traffic **delays the player's trucks**. The truck may **reroute** if it gets stuck; otherwise it deals with it.
+- **[PROPOSED]** The scheduler pads drive time to account for average traffic and rush hour.
+- **[PROPOSED]** Performance: cap the number of active cars (about 15-30 on screen), and use cheaper handling for cars far from the camera. Must run on mobile.
+
+### 18.3 Parking at job sites
+- **[LOCKED]** The player's work vehicles **park on the street in front of the job site**.
+- **[LOCKED]** If an AI car is parked in that spot, it **drives away before the player arrives**. Traffic keeps clear of the player's parking spot.
+- **[PROPOSED]** AI cars are also parked on streets and in driveways as scenery, but never in a reserved job spot.
+
+### 18.4 Later hindrances (after the foundation works)
+- **[LOCKED]** **School bus:** one route, running in the morning rush, and again at school letting out (about 2-3 PM). Players can get stuck behind it.
+- **[LOCKED]** **Railroad:** trains occasionally block crossings, long enough to be annoying (around 20 cars).
+- **[LOCKED]** **No accidents** for now.
+- **[PROPOSED]** Pedestrians and other extras are optional later.
+
+## 19. Map Plan (Draft v2)
+
+- **[LOCKED]** **Property location:** out in the **rural southwest**, far enough from town to have room to expand.
+- **[LOCKED]** **Natural features:** a **creek or river with a bridge**, **ponds**, and a **railroad** through town.
+- **[LOCKED]** **Civic buildings:** school, library, police station, fire station, hospital (just a larger building, not a whole district), and town hall.
+- **[LOCKED]** **Neighborhood variety:** one neighborhood is a **more upper-middle-class area with curves and cul-de-sacs**. Layout freedom (including a diagonal road here or there) goes to the designer, as long as roads and traffic work.
+- **[PROPOSED]** Layout: named streets run east-west (Oakwood, Prospect, Main, Market, Exchange, State), numbered Avenues run north-south (1st-6th). A railroad runs east-west between Market and Exchange, crossing at 2nd, 4th and 6th Ave. A creek runs along the west side with a bridge on State St. Neighborhood A (grid, working class) is in the northwest, Neighborhood B (curvy, upper middle) in the northeast, park/ballfield in the middle, downtown in the center, the business area (lumber yard, stone yard, hardware, fuel depot) south of the tracks, and farms around the edges. Cemetery by the north farmland. Hospital on the east side.
+
 ## 15. Recurring Customers
 
 - **[LOCKED]** Some jobs (especially **mowing**) can be **recurring customers**, for example "mow every week."
@@ -315,4 +352,4 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 
 ---
 
-*Last updated: recurring customers, seasons and snow, and a draft job catalog.*
+*Last updated: traffic, abstract map scale, and map plan v2.*

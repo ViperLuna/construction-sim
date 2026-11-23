@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Construction Sim</title>
+  <meta name="description" content="A top-down landscaping and construction business sim.">
+  <meta name="theme-color" content="#263238">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Construction Sim">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <!-- Title screen -->
+  <main id="title-screen" class="screen title">
+    <img class="title-cone" src="./icons/icon.svg" alt="" width="120" height="120">
+    <h1 id="title-name">Construction Sim</h1>
+    <p class="tagline">Mow it. Mulch it. Build it.</p>
+    <div class="title-buttons">
+      <button id="btn-play" class="btn primary" type="button">Play</button>
+      <button id="btn-fullscreen" class="btn" type="button">Full Screen</button>
+      <button id="btn-settings" class="btn" type="button">Settings</button>
+    </div>
+    <p id="fullscreen-hint" class="hint" role="status"></p>
+    <p id="title-version" class="version"></p>
+  </main>
+
+  <!-- Game screen -->
+  <div id="game-screen" class="screen game" hidden>
+    <header class="hud">
+      <button id="btn-title" class="icon-btn" type="button" aria-label="Back to title">☰</button>
+      <div class="clock" aria-live="off">
+        <span id="hud-date" class="clock-date">Mon, Apr 7</span>
+        <span id="hud-time" class="clock-time">7:00 AM</span>
+      </div>
+      <div class="speed" role="group" aria-label="Game speed">
+        <button data-speed="0" class="icon-btn" type="button" aria-label="Pause" aria-pressed="false">⏸</button>
+        <button data-speed="1" class="icon-btn" type="button" aria-label="Normal speed" aria-pressed="true">1×</button>
+        <button data-speed="2" class="icon-btn" type="button" aria-label="Double speed" aria-pressed="false">2×</button>
+        <button data-speed="3" class="icon-btn" type="button" aria-label="Quadruple speed" aria-pressed="false">4×</button>
+      </div>
+      <button id="btn-game-settings" class="icon-btn" type="button" aria-label="Settings">⚙</button>
+    </header>
+
+    <canvas id="map" aria-label="Town map"></canvas>
+
+    <footer class="toolbar">
+      <p id="status" class="status" role="status"></p>
+      <div class="toolbar-row">
+        <select id="dest-select" aria-label="Destination"></select>
+        <button id="btn-go" class="btn primary" type="button">Go</button>
+        <button id="btn-home" class="btn" type="button">Home</button>
+        <button id="btn-follow" class="btn" type="button" aria-pressed="false">Follow</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Settings -->
+  <dialog id="settings-dialog">
+    <form id="settings-form" method="dialog">
+      <h2>Settings</h2>
+      <label for="set-seconds-per-hour">Real seconds per game hour</label>
+      <input id="set-seconds-per-hour" type="number" min="60" step="1" inputmode="numeric" required>
+      <p class="hint">60 is the default and the fastest allowed (one real minute is one game hour). Higher numbers slow the game down.</p>
+      <p id="settings-msg" class="hint" role="status"></p>
+      <div class="dialog-buttons">
+        <button id="btn-settings-reset" class="btn" type="button">Reset</button>
+        <button id="btn-settings-cancel" class="btn" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <noscript>This game needs JavaScript to run.</noscript>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

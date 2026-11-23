@@ -403,6 +403,39 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[PROPOSED]** Wages, fuel and other fractional amounts are **calculated and rounded to the nearest whole dollar when paid**, never mid-job.
 - **[PROPOSED]** Standard JavaScript numbers are sufficient (they hold integers safely to about 9 quadrillion).
 
+## 22. Screens and Scheduling UI
+
+### 22.1 HUD (always visible)
+- **[PROPOSED]** Top bar: date and time, weather, **money (short form)**, **fuel**, and the **speed controls** (pause, 1x, 2x, 4x).
+- **[PROPOSED]** Bottom nav: **Map, Jobs, Calendar, Crew, Money, Property**.
+- **[LOCKED]** An **"End Day" button appears when the last crew clocks out**. Nothing advances until the player presses it.
+- **[LOCKED]** Mobile-friendly: icons on small screens, speed controls collapsed.
+- **[LOCKED]** Extra HUD items (reputation, loan warning, next-job countdown) are added later as needed.
+
+### 22.2 Calendar
+- **[LOCKED]** The calendar shows **jobs by day and who is working**, plus the **forecast**.
+- **[PROPOSED]** **Adaptive layout:** on wide screens, crews run down the side and days across a week. On phones, one day at a time (a 7 AM-5 PM timeline) with a week strip on top showing weather and how full each day is.
+- **[PROPOSED]** Tapping a day opens the **day timeline** (jobs, drive time, buffer). Tapping a job shows address, assigned crew, materials, cost estimate, and **cancel**.
+- **[PROPOSED]** Color coding: green (comfortable), yellow (tight), red (may overrun).
+
+### 22.3 Auto-scheduling
+- **[LOCKED]** On accepting a job, it is **auto-assigned to the first available crew team** and **auto-placed**.
+- **[LOCKED]** If there's time to do the job today, **or at least most of it**, the crew **goes today**. Otherwise it's scheduled for the **next available opening** for that crew.
+- **[PROPOSED]** "Most" means roughly **60% or more** of the block fits in the day's remaining shift.
+- **[PROPOSED]** A **planned carryover** into the next morning is **not penalized**. The overrun penalty (see 9.6) applies only when a job runs past its **scheduled** time.
+- **[LOCKED]** The player can **move a job** to another time or crew if it fits.
+
+### 22.4 Crew teams and vehicles
+- **[LOCKED]** Crews are **auto-created in pairs (2 people)** and can be edited later.
+- **[LOCKED]** When bigger vehicles are available (a 4-seat truck, later a van), crews can be larger.
+- **[LOCKED]** The crew assignment area includes a **vehicle assignment** for each crew. Crew size is limited by the vehicle's seats.
+
+### 22.5 Completion windows and priority
+- **[LOCKED]** Jobs have a **completion window**, a deadline giving the player some time to get them done.
+- **[LOCKED]** **More important jobs have smaller windows but pay more** when completed within the limit.
+- **[PROPOSED]** Missing a window lowers pay and rating, and can hurt reputation.
+- **[OPEN]** Exact window lengths per job type, and bonus percentages.
+
 ---
 
-*Last updated: crew stats, hiring, raises and money format.*
+*Last updated: HUD, calendar, auto-scheduling, crews and vehicles, completion windows.*

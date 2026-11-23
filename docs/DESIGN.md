@@ -332,8 +332,10 @@ When viewing an offer, the player sees **offered pay against estimated cost**:
 - **[LOCKED]** **There is no cap on how many jobs you can line up**, because having work lined up is job security. The only limit is whether each job fits inside its own completion window. Long windows (up to about 3 weeks) exist so a queue can run long.
 - **[PROPOSED]** Windows run from 1 to 15 business days (today counts as day 1), due at the end of the shift on the due day. A **1-day window is a RUSH job paying about +25%**, and a 2-day window pays about +10%.
 - **[PROPOSED]** A job that still finishes after its window (an overrun) loses about 10% of its pay per business day late, up to 50%, and can hurt rating and reputation.
-- **[LOCKED]** If a job isn't finished in its block, it **must be finished the next morning**, and the overrun **lowers the job rating, which lowers pay.**
-- **[PROPOSED]** A **planned carryover** (scheduled to span days) is **not penalized**. The penalty applies only when a job runs past its **scheduled** time.
+- **[LOCKED]** If a job isn't finished by quitting time, the crew **stops and goes home**, and **finishes it the next morning**.
+- **[LOCKED]** **No penalty if it's still inside the agreed time.** A job that runs over into the next day is fine, as long as it's finished within its allotted completion window. Lateness is judged only against the agreed due date.
+- **[LOCKED]** Finishing **after** the agreed time **lowers the job rating, which lowers pay.**
+- **[PROPOSED]** A job scheduled to span two days (a **planned carryover**) is likewise not penalized, as long as it's inside its window.
 - **[LOCKED]** Each job has an expected rating, and quality matters more the better the crew should be.
 - **[PROPOSED]** Rating inputs: crew skill, on-time completion, weather, and whether the job was understaffed.
 - **[OPEN]** Window lengths per job type, and bonus percentages.

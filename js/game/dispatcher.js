@@ -6,11 +6,21 @@ import { JOB_TYPES } from '../data/jobs.js';
 import { findPath } from '../world/pathfind.js';
 import { mulberry32 } from '../util/rng.js';
 import { FUEL_GAL_PER_TILE, FUEL_PRICE } from './economy.js';
-import { dayOf, shiftStart, shiftEnd, nextBusinessDay, isBusinessDay, timeOfDay, SHIFT_END_MIN } from './clock.js';
+import { dayOf, shiftStart, shiftEnd, nextBusinessDay, addBusinessDays, isBusinessDay, timeOfDay, SHIFT_END_MIN } from './clock.js';
 
 const BUFFER = 1.2; // extra time added to every scheduled block
 const MOST_FITS = 0.6; // start today if at least this much of the job fits
 const OFFERS_PER_DAY = 6;
+
+// How many business days a customer gives you (today counts as day 1), and the
+// bonus for short windows. Rush jobs pay more but leave less room to schedule.
+const WINDOWS = [
+  { days: 1, weight: 1, bonus: 0.25 },
+  { days: 2, weight: 3, bonus: 0.1 },
+  { days: 3, weight: 3, bonus: 0 },
+  { days: 4, weight: 2, bonus: 0 },
+  { days: 5, weight: 1, bonus: 0 },
+];
 
 export class Dispatcher {
   constructor({ world, truck, clock, economy, crew }) {
@@ -60,8 +70,13 @@ export class Dispatcher {
       const type = pickType();
       const lot = candidates.splice(Math.floor(rng() * candidates.length), 1)[0];
       const steps = Math.round((type.payRange[1] - type.payRange[0]) / type.payStep);
-      const pay = type.payRange[0] + Math.floor(rng() * (steps + 1)) * type.payStep;
-      const offer = { id: `d${day}-${lot.id}`, type, lot, pay };
+      const basePay = type.payRange[0] + Math.floor(rng() * (steps + 1)) * type.payStep;
+      // The completion window: a deadline at the end of the shift on the due day.
+      let roll = rng() * WINDOWS.reduce((sum, w) => sum + w.weight, 0);
+      const window = WINDOWS.find((w) => (roll -= w.weight) < 0) || WINDOWS[2];
+      const dueDay = addBusinessDays(day, window.days - 1);
+      const pay = Math.round((basePay * (1 + window.bonus)) / type.payStep) * type.payStep;
+      const offer = { id: `d${day}-${lot.id}`, type, lot, basePay, pay, dueDay, dueAt: shiftEnd(dueDay), rush: window.days === 1 };
       offer.est = this.estimate(offer);
       offers.push(offer);
     }
@@ -103,17 +118,30 @@ export class Dispatcher {
     return cand;
   }
 
+  // Where this job would go, and whether it can finish before it's due.
+  // This is what keeps the queue honest: you can't pile up more work than the
+  // crew can actually get done in time.
+  checkSlot(offer) {
+    const start = this.findSlot(offer.est.blockMin);
+    const end = start + offer.est.blockMin;
+    return { ok: end <= offer.dueAt, start, end };
+  }
+
   accept(offerId) {
     const i = this.offers.findIndex((o) => o.id === offerId);
     if (i < 0) return null;
-    const offer = this.offers.splice(i, 1)[0];
-    const start = this.findSlot(offer.est.blockMin);
+    const offer = this.offers[i];
+    const slot = this.checkSlot(offer);
+    if (!slot.ok) return null;
+    this.offers.splice(i, 1);
+    const start = slot.start;
     const job = {
       id: this.nextId++,
       offer,
       lot: offer.lot,
       type: offer.type,
       pay: offer.pay,
+      dueAt: offer.dueAt,
       est: offer.est,
       start,
       end: start + offer.est.blockMin,

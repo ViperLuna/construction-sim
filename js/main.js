@@ -3,7 +3,7 @@ import { loadSettings, saveSettings, clampSecondsPerHour } from './settings.js';
 import { unlock } from './audio.js';
 import { buildWorld, lotAt } from './world/map.js';
 import { Truck } from './game/truck.js';
-import { Clock, partsAt } from './game/clock.js';
+import { Clock, partsAt, dayOf } from './game/clock.js';
 import { createEconomy, formatMoneyShort, formatMoneyFull } from './game/economy.js';
 import { Dispatcher } from './game/dispatcher.js';
 import { createCamera, render, screenToWorld } from './game/render.js';
@@ -195,16 +195,23 @@ function createGame() {
     }
     for (const offer of dispatcher.offers) {
       const e = offer.est;
-      const card = el('article', 'card');
+      const slot = dispatcher.checkSlot(offer);
+      const card = el('article', slot.ok ? 'card' : 'card blocked');
       const main = el('div', 'card-main');
-      main.append(el('strong', '', `${offer.type.name} · ${offer.lot.address}`));
+      const title = el('strong', '', `${offer.type.name} · ${offer.lot.address}`);
+      if (offer.rush) title.append(el('span', 'rush', 'RUSH'));
+      main.append(title);
       main.append(el('div', 'muted', `About ${e.workMin} min of work · ${Math.round(e.driveMin)} min drive each way`));
       const money = el('div', '', '');
       money.append(document.createTextNode(`Pays ${formatMoneyFull(offer.pay)} · fuel ≈ ${formatMoneyFull(e.fuelCost)} · `));
       money.append(el('span', 'good', `profit ≈ ${formatMoneyFull(e.profit)}`));
       main.append(money);
-      const btn = el('button', 'btn primary', 'Accept');
+      const dueDay = dayOf(offer.dueAt);
+      const due = `${dueDay === clock.day ? 'today' : partsAt(offer.dueAt).day} ${partsAt(offer.dueAt).time}`;
+      main.append(el('div', slot.ok ? 'muted' : 'muted warn', slot.ok ? `Due ${due}` : `Can't finish before it's due (${due})`));
+      const btn = el('button', slot.ok ? 'btn primary' : 'btn', slot.ok ? 'Accept' : 'Too late');
       btn.type = 'button';
+      btn.disabled = !slot.ok;
       btn.addEventListener('click', () => {
         const job = dispatcher.accept(offer.id);
         if (job) setStatus(`Scheduled ${job.lot.address}: ${fmtRange(job.start, job.end)}`);
@@ -234,7 +241,7 @@ function createGame() {
       const card = el('article', done ? 'card done' : 'card');
       const main = el('div', 'card-main');
       main.append(el('strong', '', `${job.type.name} · ${job.lot.address}`));
-      main.append(el('div', 'muted', done ? `Finished ${partsAt(job.finishedAt).day} ${partsAt(job.finishedAt).time}` : fmtRange(job.start, job.end)));
+      main.append(el('div', 'muted', done ? `Finished ${partsAt(job.finishedAt).day} ${partsAt(job.finishedAt).time}` : `${fmtRange(job.start, job.end)} · due ${partsAt(job.dueAt).day}`));
       card.append(main, el('div', done ? 'row-status good' : 'row-status', statusText(job)));
       panelBody.append(card);
     };

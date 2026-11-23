@@ -20,6 +20,18 @@ function setup(startMinutes = 0) {
   return { world, clock, truck, economy, dispatcher };
 }
 
+// An offer with a long window, so tests of scheduling don't trip over deadlines.
+function easy(dispatcher) {
+  return dispatcher.offers.find((o) => o.dueAt - dispatcher.clock.minutes > 3 * 1440) || dispatcher.offers[dispatcher.offers.length - 1];
+}
+
+// Accept the first offer, ignoring its deadline (for tests about other things).
+function take(dispatcher) {
+  const offer = dispatcher.offers[0];
+  offer.dueAt = Infinity;
+  return dispatcher.accept(offer.id);
+}
+
 // Advance the simulated day the same way the game loop does.
 function run(ctx, until, stepMin = 0.05) {
   for (let i = 0; i < 400000 && !until(); i++) {
@@ -59,7 +71,9 @@ test('scheduler: starts today if most of the job fits, otherwise next morning', 
   ];
   for (const [label, startMinute, today] of cases) {
     const ctx = setup(startMinute);
-    const job = ctx.dispatcher.accept(ctx.dispatcher.offers[0].id);
+    const offer = ctx.dispatcher.offers[0];
+    offer.dueAt = Infinity; // this test is about finding slots, not deadlines
+    const job = ctx.dispatcher.accept(offer.id);
     const p = partsAt(job.start);
     if (today) assert.equal(p.day, 'Mon', label + ' -> same day');
     else assert.equal(`${p.day} ${p.time}`, 'Tue 7:00 AM', label + ' -> next morning');
@@ -68,7 +82,7 @@ test('scheduler: starts today if most of the job fits, otherwise next morning', 
 
 test('scheduler: Friday evening work rolls to Monday, skipping the weekend', () => {
   const ctx = setup(4 * 1440 + 580); // Friday 4:40 PM
-  const job = ctx.dispatcher.accept(ctx.dispatcher.offers[0].id);
+  const job = take(ctx.dispatcher);
   const p = partsAt(job.start);
   assert.equal(`${p.day} ${p.time}`, 'Mon 7:00 AM');
 });
@@ -76,7 +90,7 @@ test('scheduler: Friday evening work rolls to Monday, skipping the weekend', () 
 test('a full working day: jobs run, pay lands, crew clocks out at home, End Day skips ahead', () => {
   const ctx = setup();
   const { dispatcher, economy, clock, world } = ctx;
-  for (let i = 0; i < 4; i++) dispatcher.accept(dispatcher.offers[0].id);
+  for (let i = 0; i < 4; i++) take(dispatcher);
   const expected = dispatcher.schedule.reduce((sum, j) => sum + j.pay, 0);
 
   run(ctx, () => clock.shiftOver);
@@ -108,7 +122,7 @@ test('End Day on a Friday goes to Monday', () => {
 test('finished work holds, then fades to nothing (for every job type)', () => {
   const ctx = setup();
   const { dispatcher, clock } = ctx;
-  dispatcher.accept(dispatcher.offers[0].id);
+  take(dispatcher);
   run(ctx, () => dispatcher.history.length === 1);
   const lot = dispatcher.history[0].lot;
   const t0 = lot.work.doneAt;
@@ -132,7 +146,8 @@ test('offers mix job types, and longer jobs take longer', () => {
     for (const o of ctx.dispatcher.offers) {
       if (!seen.has(o.type.id)) seen.set(o.type.id, o.est.workMin);
       assert.equal(o.lot.kind, 'house');
-      assert.ok(o.pay >= o.type.payRange[0] && o.pay <= o.type.payRange[1]);
+      assert.ok(o.basePay >= o.type.payRange[0] && o.basePay <= o.type.payRange[1]);
+      assert.ok(o.pay >= o.basePay && o.pay <= o.basePay * 1.3, 'rush bonus is modest');
       assert.equal(o.pay % o.type.payStep, 0);
     }
   }
@@ -167,8 +182,8 @@ test('skip: to quitting time when idle with nothing scheduled', () => {
 
 test('skip: jumps to the next job when one is scheduled later today', () => {
   const ctx = setup(60);
-  const first = ctx.dispatcher.accept(ctx.dispatcher.offers[0].id);
-  ctx.dispatcher.accept(ctx.dispatcher.offers[0].id); // queued behind it
+  const first = take(ctx.dispatcher);
+  take(ctx.dispatcher); // queued behind it
   run(ctx, () => ctx.dispatcher.history.length === 1 && ctx.dispatcher.isIdleAtHome());
   const second = ctx.dispatcher.schedule[0];
   assert.ok(second.start > ctx.clock.minutes + 1, 'crew is home with a wait ahead of them');
@@ -180,7 +195,7 @@ test('skip: jumps to the next job when one is scheduled later today', () => {
 
 test('skip: not offered while out on a job, or after hours', () => {
   const busy = setup();
-  busy.dispatcher.accept(busy.dispatcher.offers[0].id);
+  take(busy.dispatcher);
   run(busy, () => busy.dispatcher.state !== 'idle');
   assert.equal(busy.dispatcher.skipTarget(), null);
   const late = setup(600);
@@ -210,4 +225,53 @@ test('truck turns smoothly: no spinning, the same at any speed or frame rate', (
     // 180 deg/tile is a tight U-turn; a snapping spin measured over 200.
     assert.ok((worst * 180) / Math.PI < 200, `worst turn ${((worst * 180) / Math.PI).toFixed(0)} deg/tile at ${fps}fps x${speed}`);
   }
+});
+
+test('offers have due dates, and short windows pay more', () => {
+  let rush = 0;
+  let normal = 0;
+  for (let day = 0; day < 15; day++) {
+    const d = setup(day * 1440).dispatcher;
+    for (const o of d.offers) {
+      assert.ok(o.dueAt > day * 1440 && o.dueAt <= day * 1440 + 8 * 1440, 'due within about a week');
+      if (o.rush) {
+        assert.ok(o.pay > o.basePay, 'rush pays a bonus');
+        rush++;
+      } else normal++;
+    }
+  }
+  assert.ok(rush > 0 && normal > rush, 'some rush jobs, mostly normal ones');
+});
+
+test("can't accept a job that won't finish before it's due", () => {
+  const ctx = setup(600 - 20); // 4:40 PM
+  const offer = ctx.dispatcher.offers[0];
+  offer.dueAt = 600; // due at 5 PM today, with no hope of finishing
+  assert.equal(ctx.dispatcher.checkSlot(offer).ok, false);
+  assert.equal(ctx.dispatcher.accept(offer.id), null);
+  assert.equal(ctx.dispatcher.offers.includes(offer), true, 'the offer stays on the board');
+  assert.equal(ctx.dispatcher.schedule.length, 0, 'nothing was queued');
+  // the same job with a later due date is fine
+  offer.dueAt = 3 * 1440;
+  assert.ok(ctx.dispatcher.accept(offer.id));
+});
+
+test('the queue limits itself: accepting everything every day cannot pile up impossible work', () => {
+  const ctx = setup();
+  const { dispatcher, clock } = ctx;
+  let maxQueue = 0;
+  let accepted = 0;
+  for (let day = 0; day < 12; day++) {
+    for (const offer of [...dispatcher.offers]) if (dispatcher.accept(offer.id)) accepted++;
+    maxQueue = Math.max(maxQueue, dispatcher.schedule.length);
+    // every scheduled job is booked to finish before it is due
+    for (const job of dispatcher.schedule) assert.ok(job.end <= job.dueAt, `${job.lot.address} booked past its due time`);
+    run(ctx, () => clock.shiftOver);
+    dispatcher.endDay();
+  }
+  // Six offers a day, but the crew can't do all of them; the rest are turned away.
+  assert.ok(accepted < 12 * 6, `accepted ${accepted} of ${12 * 6}`);
+  assert.ok(maxQueue <= 12, `queue peaked at ${maxQueue}`);
+  // and everything that was done was done on time
+  for (const job of dispatcher.history) assert.ok(job.finishedAt <= job.dueAt, `${job.lot.address} finished late`);
 });

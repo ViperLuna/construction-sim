@@ -328,6 +328,8 @@ When viewing an offer, the player sees **offered pay against estimated cost**:
 
 ### 8.6 Completion windows, overruns and ratings
 - **[LOCKED]** Jobs have a **completion window** (deadline). **More important jobs have smaller windows but pay more** when finished within them.
+- **[LOCKED]** **You can't accept a job that won't be finished before it's due.** The scheduler checks, and the offer stays on the board marked "too late". This keeps the queue limited to what the crew can actually do, so work can't be stockpiled by accepting everything every day.
+- **[PROPOSED]** Windows are 1-5 business days (today counts as day 1), due at the end of the shift on the due day. A **1-day window is a RUSH job paying about +25%**, and a 2-day window pays about +10%.
 - **[PROPOSED]** Missing a window lowers pay and rating, and can hurt reputation.
 - **[LOCKED]** If a job isn't finished in its block, it **must be finished the next morning**, and the overrun **lowers the job rating, which lowers pay.**
 - **[PROPOSED]** A **planned carryover** (scheduled to span days) is **not penalized**. The penalty applies only when a job runs past its **scheduled** time.

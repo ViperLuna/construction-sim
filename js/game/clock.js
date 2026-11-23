@@ -25,6 +25,12 @@ export function nextBusinessDay(day) {
   while (!isBusinessDay(day)) day++;
   return day;
 }
+// The day that is `n` business days after `day` (n = 0 is the same day).
+export function addBusinessDays(day, n) {
+  let d = nextBusinessDay(day);
+  for (let i = 0; i < n; i++) d = nextBusinessDay(d + 1);
+  return d;
+}
 
 function partsOf(date) {
   let h = date.getHours();

@@ -178,6 +178,16 @@ When viewing an offer, the player sees **offered pay against estimated cost**:
 - **[PROPOSED]** Block length = (base work time ÷ crew efficiency) + drive time + load/setup time + buffer (about 15-25 percent, larger in bad weather).
 - **[PROPOSED]** The scheduler finds the first slot where a suitable crew is free and the block fits inside working hours.
 
+### 9.4b Haul-away and the Dump
+- **[LOCKED]** The map includes a **dump** (landfill/transfer station) where junk is taken.
+- **[LOCKED]** For haul jobs, **pay is based on finishing the work at the customer's property** (rating, speed and deadline are judged there), but **the job isn't truly over until the load is hauled to the dump**.
+- **[LOCKED]** The dump uses the **same simple animation** as other service points: the truck parks at the spot, the load disappears from the truck bed after a short time, and it drives away.
+- **[PROPOSED]** The dump trip (drive there, dump, drive back) is included in the job's **scheduled block** and in the **time and cost estimate**.
+- **[PROPOSED]** A **dump fee** per load is a job cost shown on the job board.
+- **[PROPOSED]** A truck can carry a **limited number of loads**. An undumped load stays on the truck and **blocks further haul jobs** until it's dumped.
+- **[PROPOSED]** Location: the **east or southeast edge** of the map, out past the farms.
+- **[OPEN]** Dump fee amount, opening hours (if any), and whether the dump trip must happen the same day.
+
 ### 9.5 Visual Build Sequence
 - **[LOCKED]** Work is **displayed on the map**. Pieces appear a little at a time as the job progresses.
 - **[LOCKED]** Visuals look a bit "half-assed" in progress, then turn out finished. Example: a flower bed goes from marked out, to dug, to edging placed piece by piece, to soil, to plants.
@@ -296,7 +306,7 @@ Nothing gets coded until the design settles. When it does, build in small, playa
 - **[LOCKED]** **Natural features:** a **creek or river with a bridge**, **ponds**, and a **railroad** through town.
 - **[LOCKED]** **Civic buildings:** school, library, police station, fire station, hospital (just a larger building, not a whole district), and town hall.
 - **[LOCKED]** **Neighborhood variety:** one neighborhood is a **more upper-middle-class area with curves and cul-de-sacs**. Layout freedom (including a diagonal road here or there) goes to the designer, as long as roads and traffic work.
-- **[PROPOSED]** Layout: named streets run east-west (Oakwood, Prospect, Main, Market, Exchange, State), numbered Avenues run north-south (1st-6th). A railroad runs east-west between Market and Exchange, crossing at 2nd, 4th and 6th Ave. A creek runs along the west side with a bridge on State St. Neighborhood A (grid, working class) is in the northwest, Neighborhood B (curvy, upper middle) in the northeast, park/ballfield in the middle, downtown in the center, the business area (lumber yard, stone yard, hardware, fuel depot) south of the tracks, and farms around the edges. Cemetery by the north farmland. Hospital on the east side.
+- **[PROPOSED]** Layout: named streets run east-west (Oakwood, Prospect, Main, Market, Exchange, State), numbered Avenues run north-south (1st-6th). A railroad runs east-west between Market and Exchange, crossing at 2nd, 4th and 6th Ave. A creek runs along the west side with a bridge on State St. Neighborhood A (grid, working class) is in the northwest, Neighborhood B (curvy, upper middle) in the northeast, park/ballfield in the middle, downtown in the center, the business area (lumber yard, stone yard, hardware, fuel depot) south of the tracks, and farms around the edges. Cemetery by the north farmland. Hospital on the east side. **The dump** is on the east/southeast edge (see 9.4b).
 
 ## 15. Recurring Customers
 

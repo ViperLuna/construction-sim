@@ -371,7 +371,11 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[LOCKED]** Crew have an **overall level** plus individual stats, each rated **1-10**.
 - **[LOCKED]** Starting stats: **Speed** and **Quality** (the two main ones), plus more.
 - **[PROPOSED]** Full stat list: **Speed** (work pace), **Quality** (job rating, neatness), **Stamina** (holds pace over a long day), **Driving** (fuel economy, time lost in traffic), **Equipment** (needed to operate machines, gates Tier 4 jobs), **Teamwork** (boosts the whole crew's efficiency).
-- **[LOCKED]** Crew **earn XP while working**. Each **level gives 1 point** the player can spend on any stat (max 10), by clicking on the crew member.
+- **[LOCKED]** With six stats, **more than one point per level** is allowed, and milestones can award points too.
+- **[LOCKED]** Stats can also be raised by **paying for training**, and **training cost rises as the stat gets higher**.
+- **[LOCKED]** Crew **earn XP while working**. Level-ups give points the player can spend on any stat (max 10), by clicking on the crew member.
+- **[PROPOSED]** **2 points per level**, plus a **bonus point at milestone levels** (5, 10, 15, and so on). All numbers are tunable.
+- **[PROPOSED]** Training is an instant, paid stat increase of +1. The cost scales with the stat's current value (cheap at low values, expensive near 10).
 - **[LOCKED]** A crew member's points can be **reset to their original stats and re-spent for a price**.
 - **[PROPOSED]** Respec price scales with level.
 - **[PROPOSED]** Hidden **Morale** stat drives raise requests and quitting.
@@ -383,11 +387,11 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[LOCKED]** Each applicant has an **asking starting wage**. The starting low end is **$12/hour**.
 - **[LOCKED]** The player can **offer a different wage**, and the applicant **accepts or declines**. Offering **more than asked guarantees acceptance**.
 - **[PROPOSED]** Offering **less** than asked may be declined, with the chance depending on how far below. Applicants may leave the pool at the end of the day.
-- **[OPEN]** Top end of the wage range for rare applicants.
+- **[PROPOSED]** Wage range: **$12/hour** at the bottom up to roughly **$40-60/hour** for the rarest applicants. Tunable.
 
 ### 20.3 Raises, quitting and insurance
 - **[LOCKED]** Crew can **ask for raises** (or get automatic raises as they progress), and can **quit**, **giving notice first**.
-- **[PROPOSED]** Raise requests: when a worker levels up or hits a milestone, they ask for a raise. The player accepts or declines. Declining lowers morale.
+- **[LOCKED]** **Raise requests** (the request-and-decide system): when a worker levels up or hits a milestone, they ask for a raise. The player accepts or declines. Declining lowers morale.
 - **[PROPOSED]** Low morale leads to **notice of quitting** (for example a 2-day notice). The player can keep them by improving pay or conditions.
 - **[LOCKED]** **Insurance** is a **per-day premium paid alongside payroll**, a later-game option. Workers may eventually want to be insured.
 - **[PROPOSED]** Insurance improves morale. Unlocked with the HR milestone (see 9.1b).

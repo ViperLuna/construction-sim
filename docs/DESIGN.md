@@ -108,7 +108,21 @@ A top-down 2D landscaping/construction business sim, played in the browser and h
 - **[PROPOSED]** A crew larger than a vehicle's seats needs additional vehicles, which gives the player a reason to upgrade.
 - **[LOCKED]** **Tools can be rented** (chainsaw, small bulldozer, front loader, and so on), scaling up to **renting or owning large industrial equipment much later in the game**.
 - **[LOCKED]** Some job offers require equipment or crew the player doesn't have. They show up on the board but can't be accepted yet, which shows what to work toward.
-- **[PROPOSED]** Rented equipment has a daily rate and has to be picked up and returned, ideally as a real map errand.
+- **[LOCKED]** **Vehicles and equipment can be rented or purchased.** Both options exist.
+- **[LOCKED]** **Rental rules:** a **flat daily fee**, **no security deposit** (unless accidents are added much later), **rent as long as wanted, return any time**. A rental is **delivered the next business day** (nothing delivers on weekends, same as fuel).
+- **[LOCKED]** **Starting rental price:** a 2-seat truck rents for about **$20 a day**.
+- **[PROPOSED]** The same rental system covers **trucks and equipment** (chainsaw, plate compactor, loader, and so on), replacing the idea of picking tools up as a map errand.
+- **[PROPOSED]** Buying is a one-time cost. Owned vehicles can be sold back for less than the purchase price. There's a break-even point where buying beats renting.
+- **[PROPOSED]** Starting vehicle prices (tunable):
+
+  | Vehicle | Seats | Rent/day | Buy |
+  |---|---|---|---|
+  | Slow half-ton (starting) | 2 | $20 | $7,500 |
+  | Pickup truck | 3 | $35 | $14,000 |
+  | Crew-cab truck | 4 | $50 | $24,000 |
+  | Cargo van | 6 | $75 | $38,000 |
+  | Dump truck | 2 | $120 | $60,000 |
+- **[LOCKED]** A vehicle is **assigned to a crew while the player holds it** (owned or rented), and can be **reassigned between days**.
 
 ## 8. Fuel
 
@@ -432,7 +446,7 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[LOCKED]** **A crew with no vehicle is capped at 2 people.** It can still be **assigned to a job**, but **cannot leave the property until a vehicle is available** ("bad management, but doable").
 - **[PROPOSED]** The calendar flags a crew with no vehicle in **red** ("no vehicle"). If a job's deadline passes while the crew is stuck, normal late penalties apply.
 - **[PROPOSED]** A vehicle can only be in **one place at a time**. The scheduler never double-books a vehicle, so two crews sharing one vehicle can only work non-overlapping jobs.
-- **[OPEN]** Should a vehicle be **permanently assigned** to one crew (reassignable between days), or borrowed by whichever crew needs it? Leaning **permanent assignment**.
+- **[LOCKED]** Vehicles are **assigned to one crew at a time** and can be reassigned between days (see 7).
 
 ### 22.5 Completion windows and priority
 - **[LOCKED]** Jobs have a **completion window**, a deadline giving the player some time to get them done.

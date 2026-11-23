@@ -182,7 +182,14 @@ The player (as owner) is paid from what remains. See open questions.
 ### 11.1 Debt, Loans and Losing
 - **[LOCKED]** The player **can lose**. Going into the red starts a countdown (see below).
 - **[LOCKED]** The player can **borrow from the bank at interest**. Interest is kept reasonable, not crazy.
-- **[LOCKED]** Per the owner: **the smaller the loan, the higher the interest rate.**
+- **[LOCKED]** Per the owner, modeled on real life: **small loans cost more, big loans cost less.** Big lenders won't touch small amounts for new borrowers, predatory lenders happily will, and large loans have lower rates because of longer terms and a qualified borrower.
+- **[PROPOSED]** Three loan types:
+  | Loan | Amount | Cost | Catch |
+  |---|---|---|---|
+  | **Cash advance** (the loan shark) | ~$100-$1,000 | Flat fee, ~$20-25 per $100 | Short term (a few days). Anyone qualifies, including a struggling new company. |
+  | **Small bank loan** | ~$1,000-$5,000 | Moderate interest | Needs some reputation. |
+  | **Business loan** | ~$10,000+ | Lowest interest, long term | Needs strong reputation (and later insurance, contracts). |
+- **[PROPOSED]** Qualification for better loans is tied to **reputation** (see 9.1b), so growing the business gets the player cheaper money.
 - **[PROPOSED]** Failure condition: if the balance stays negative for a set number of days, the business fails (game over). The grace period is shown clearly in the UI.
 - **[OPEN]** Grace period length, loan tiers and rates, repayment rules, and whether bankruptcy ends the save or allows a restart with a penalty.
 
@@ -210,7 +217,7 @@ Nothing gets coded until the design settles. When it does, build in small, playa
 1. **Owner pay:** free withdrawals, a player-set draw, or just a profit tally?
 2. **Fuel tank size:** is 500 gallons okay as the start?
 3. **Public gas stations:** include as an emergency option, or not?
-4. **Loans and bankruptcy details:** grace period, loan tiers and rates (note: "smaller loan = higher interest"), what happens on game over.
+4. **Loans and bankruptcy details:** grace period, exact loan amounts, rates and terms for the three loan types, what happens on game over.
 5. **Reputation and milestones:** level thresholds, and what insurance, HR and contracts each cost and unlock.
 6. **Pay during idle time:** employees are paid while clocked in. If no job is scheduled for them, are they still paid? (Probably yes, which punishes under-booking.)
 7. **Job type list:** to be brainstormed together (mowing, raking, hauling, mulching, flower beds, fencing, retaining walls, patios, baseball field, and beyond).

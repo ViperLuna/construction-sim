@@ -436,6 +436,29 @@ Times are for **one average worker** and are starting guesses only. "Weather" is
 - **[PROPOSED]** Missing a window lowers pay and rating, and can hurt reputation.
 - **[OPEN]** Exact window lengths per job type, and bonus percentages.
 
+## 23. Job Board and Settings
+
+### 23.1 Job board
+- **[PROPOSED]** Each offer shows: address, job type and a star rating (size/difficulty), **pay, estimated cost and estimated profit**, work time, drive time, due date, requirements (people, tools, materials), and **Accept** / **Decline**.
+- **[LOCKED]** **Costs are shown by default.** Players get a better experience when they can see them.
+- **[LOCKED]** A **setting lets the player hide costs** (harder mode), **off by default**.
+- **[LOCKED]** Jobs the player **can't do yet** appear locked, with what's missing and a hint on how to get it (hire someone, rent a tool).
+- **[PROPOSED]** Short-window jobs are tagged **RUSH** and pay more (see 22.5).
+- **[PROPOSED]** The board refreshes daily (see 9.1), with a countdown.
+
+### 23.2 Recurring jobs on the board
+- **[PROPOSED]** Recurring offers appear on the **main board** with a **Recurring** tag.
+- **[PROPOSED]** Accepting one creates a **standing appointment** on the calendar: a repeating block that **reserves that slot** every week, so nothing else can be booked there. Cancelling frees it. (See 15.)
+
+### 23.3 Sorting and filtering
+- **[LOCKED]** Offer **many sorting options**, even quirky ones, because players think differently.
+- **[PROPOSED]** Sort by: pay, profit, profit per hour, due date, distance, drive time, work time, job size, rush first, newest, alphabetical by street.
+- **[PROPOSED]** Filters: job category, can-do-now vs locked, needs materials, needs equipment, recurring only, neighborhood, pay range.
+
+### 23.4 Settings
+- **[LOCKED]** A **Settings** screen exists. Planned items so far: `secondsPerGameHour` (see 5), **hide job costs** toggle (default off), and **keybinds** (to be designed later).
+- **[OPEN]** Full settings list, and the keybind scheme.
+
 ---
 
-*Last updated: HUD, calendar, auto-scheduling, crews and vehicles, completion windows.*
+*Last updated: job board, recurring jobs on the board, sorting, settings.*
